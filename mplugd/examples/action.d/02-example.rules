@@ -1,0 +1,91 @@
+
+;   mplugd rules example
+;  ----------------------
+
+
+; Example: echo message at startup
+[rule startup]
+on_type=Startup
+true_exec=echo "We're starting!"
+
+
+; Example: echo message before shutdown
+[rule shutdown]
+on_type=Shutdown
+true_exec=echo "We're stopping!"
+
+
+; Example: if DP-0 gets connected to a display with ID "SAMC906", change
+;          default sink and all streams from class "musicplayers" to "HDA NVidia"
+;          and set DP-0 configuration to automatic
+[rule on_dp0_connect]
+on_type=OutputChangeNotify
+on_name=DP-0
+on_connected=1
+; if crtc != 0, the output was already configured. E.g., after executing
+; the xrandr command, a second event occurs to indicate the output is now
+; part of the crtc
+on_crtc=0
+on_id_string=SAMC906
+
+true_stream_set_defaultsink_to_alsa.card_name=HDA NVidia
+true_stream_move_class_musicplayers_to_alsa.card_name=HDA NVidia
+true_exec=xrandr --output DP-0 --auto
+
+
+; Example: if DP-0 gets disconnected from a display with ID "SAMC906", change
+;          default sink and all stream from class "musicplayers" to "HDA Intel PCH"
+;          and set DP-0 configuration to off
+;
+;          != negates a comparison
+[rule on_dp0_disconnect]
+on_type=OutputChangeNotify
+on_name=DP-0
+on_connected=0
+; if crtc == 0, the output was already deactivated
+on_crtc!=0
+on_id_string=SAMC906
+
+true_stream_set_defaultsink_to_alsa.card_name=HDA Intel PCH
+true_stream_move_class_musicplayers_to_alsa.card_name=HDA Intel PCH
+true_exec=xrandr --output DP-0 --off
+
+; Please note: there are other tools like mixers or PA itself that restore
+; the output sink for a process. If such tools are active, setting the
+; default sink has no effect. Instead, we actively set the output sink
+; for new processes with the following two rules.
+
+; Example: if a process with binary mplayer starts audio output, move this
+;          stream to sink "HDA NVidia" but only if output DP-0 is connected
+[rule move_new_mplayer_to_nvidia]
+on_type=NewPlaybackStream
+on_application.process.binary=mplayer
+if_output_DP-0_connected=1
+true_stream_move_event_to_alsa.card_name=HDA NVidia
+true_exec=echo "moving mplayer to HDA NVidia"
+
+
+; Example: if a process with binary mplayer starts audio output, move this
+;          stream to sink "HDA NVidia" but only if output DP-0 is disconnected
+[rule move_new_mplayer_to_intel]
+on_type=NewPlaybackStream
+on_application.process.binary=mplayer
+if_output_DP-0_connected=0
+true_stream_move_event_to_alsa.card_name=HDA Intel PCH
+true_exec=echo "moving mplayer to HDA Intel PCH"
+
+
+; Example: echo a message if a music player from class "musicplayers" starts
+[rule match_class_of_streams]
+on_type=NewPlaybackStream
+on_stream_class=musicplayers
+true_exec=echo "a music player is running"
+
+; Example: stream class "musicplayers" stands for all streams that belong to a
+;          process with a binary named "mplayer", "vlc" or "*player"
+;
+;          *= allows regexp matching
+[stream_class musicplayers]
+stream_application.process.binary=mplayer
+stream_application.process.binary=vlc
+stream_application.process.binary*=player

@@ -1,0 +1,20 @@
+#! /bin/bash
+
+c=1
+for i in "$@"; do
+	echo "Arg $c: $i"
+	c="$(( $c + 1 ))"
+done
+
+exit 0
+
+# if [[ "$0" == *"disconnect"* ]]; then
+# 	echo disconnect
+# 	xrandr --output $1 --off
+# 	pacmd set-default-sink 1 > /dev/null
+# else
+# 	echo connect
+# 	xrandr --output $1 --auto
+# 	xrandr --output $1 --same-as LVDS-0
+# 	pacmd set-default-sink 2 > /dev/null
+# fi
