@@ -4,4 +4,4 @@
 : ~/.mplugd/ or into /etc/mplugd/
 
 ;;; include the action.d example directory of a local installation
-; action_directory+=examples/action.d/
+; action_directory+=../examples/action.d/

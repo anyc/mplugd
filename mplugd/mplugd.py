@@ -47,29 +47,36 @@ class Event_Consumer(threading.Thread):
 					if filename.split(".")[-1] == "rules":
 						execute_rules(fullpath, e)
 
-def rules_substitute_value(event, command):
+# substitute %variables% in value
+def rules_substitute_value(event, value):
 	import re
 	
 	result = ""
 	res = True
 	while res:
-		res = re.search("%([\w\._\s]*)%", command)
+		res = re.search("%([\w\._\s]*)%", value)
 		if res:
+			# replace %% with %
 			if res.group(1) == "":
-				result = result + command[:res.start()] + "%"
-				command = command[res.end():]
+				result = result + value[:res.start()] + "%"
+				value = value[res.end():]
 				continue
 			
 			sub = ""
 			vlist = res.group(1).split("_")
+			
 			if vlist[0] == "event" and event.item and hasattr(event.item, "_".join(vlist[1:])):
 				sub = getattr(event.item, "_".join(vlist[1:]))
 			if vlist[0] in mplugd.laststate and vlist[1] in mplugd.laststate[vlist[0]] and hasattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:])):
 				sub = getattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:]))
-			result = result + command[:res.start()] + sub
-			command = command[res.end():]
-	print result + command
-	return ""
+			
+			# result contains the substituted part of value
+			result = result + value[:res.start()] + sub
+			# value contains the unprocessed part of the original value
+			value = value[res.end():]
+	
+	# return substituted string and the remaining part of value
+	return result + value
 
 # process rules file from action.d/
 def execute_rules(filename, event):
