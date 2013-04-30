@@ -47,6 +47,30 @@ class Event_Consumer(threading.Thread):
 					if filename.split(".")[-1] == "rules":
 						execute_rules(fullpath, e)
 
+def rules_substitute_value(event, command):
+	import re
+	
+	result = ""
+	res = True
+	while res:
+		res = re.search("%([\w\._\s]*)%", command)
+		if res:
+			if res.group(1) == "":
+				result = result + command[:res.start()] + "%"
+				command = command[res.end():]
+				continue
+			
+			sub = ""
+			vlist = res.group(1).split("_")
+			if vlist[0] == "event" and event.item and hasattr(event.item, "_".join(vlist[1:])):
+				sub = getattr(event.item, "_".join(vlist[1:]))
+			if vlist[0] in mplugd.laststate and vlist[1] in mplugd.laststate[vlist[0]] and hasattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:])):
+				sub = getattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:]))
+			result = result + command[:res.start()] + sub
+			command = command[res.end():]
+	print result + command
+	return ""
+
 # process rules file from action.d/
 def execute_rules(filename, event):
 	if mplugd.verbose:
@@ -74,6 +98,7 @@ def execute_rules(filename, event):
 				print "Item: %s %s %s ..." %(k, values[0].sep, values),
 			
 			if k[:len("if_present_")] == "if_present_":
+				# if_present_output_name=DP-0
 				ki = k[len("if_present_"):].split("_")
 				
 				found = False
@@ -93,6 +118,8 @@ def execute_rules(filename, event):
 					break
 			
 			elif k[:len("if_")] == "if_":
+				# if_output_DP-0_connected=1
+				
 				ki = k[len("if_"):].split("_")
 				
 				if not ki[0] in mplugd.laststate:
@@ -124,6 +151,8 @@ def execute_rules(filename, event):
 					break
 			
 			elif k.startswith("on_type"):
+				# on_type=NewPlaybackStream
+				
 				if not event:
 					print "no event"
 					execute = False
@@ -139,6 +168,8 @@ def execute_rules(filename, event):
 						print "match"
 			
 			elif k.startswith("on_"):
+				# on_name*=DP-[0-9]
+				
 				if not event:
 					print "no event"
 					execute = False
@@ -185,7 +216,7 @@ def execute_rules(filename, event):
 			
 			for p in plugins:
 				if pl[1] in p.keywords:
-					p.handle_rule_cmd(sparser, pl, v, mplugd.laststate, event)
+					p.handle_rule_cmd(sparser, pl, rules_substitute_value(v), mplugd.laststate, event)
 					break
 		
 		# we execute true/false commands directly
@@ -198,6 +229,7 @@ def execute_rules(filename, event):
 				cmd = sparser.get(s, "false_exec")
 		if cmd:
 			for c in cmd:
+				c = rules_substitute_value(event, c)
 				if mplugd.verbose:
 					print "exec", c
 				subprocess.call(c, shell=True)
