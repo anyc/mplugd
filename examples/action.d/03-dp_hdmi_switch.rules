@@ -2,7 +2,7 @@
 ; switches audio output for PulseAudio-enabled applications
 
 ; Example: if DP-[0-9] gets connected to a display, change default sink and
-;          all streams from class "musicplayers" to "HDA NVidia" and set the
+;          all streams from class "videoplayers" to "HDA NVidia" and set the
 ;          display configuration to automatic
 [rule on_dp0_connect]
 on_type=OutputChangeNotify
@@ -14,12 +14,12 @@ on_connected=1
 on_crtc=0
 
 true_stream_set_defaultsink_to_alsa.card_name=HDA NVidia
-true_stream_move_class_musicplayers_to_alsa.card_name=HDA NVidia
+true_stream_move_class_videoplayers_to_alsa.card_name=HDA NVidia
 true_exec=xrandr --output %event_name% --auto
 
 
 ; Example: if DP-[0-9] gets disconnected from a display, change default sink and
-;          all streams from class "musicplayers" to "HDA Intel PCH" and set the
+;          all streams from class "videoplayers" to "HDA Intel PCH" and set the
 ;          display configuration to off
 ;
 ;          != negates a comparison
@@ -31,7 +31,7 @@ on_connected=0
 on_crtc!=0
 
 true_stream_set_defaultsink_to_alsa.card_name=HDA Intel PCH
-true_stream_move_class_musicplayers_to_alsa.card_name=HDA Intel PCH
+true_stream_move_class_videoplayers_to_alsa.card_name=HDA Intel PCH
 true_exec=xrandr --output %event_name% --off
 
 
@@ -40,21 +40,38 @@ true_exec=xrandr --output %event_name% --off
 ; default sink has no effect. Instead, we actively set the output sink
 ; for new processes with the following two rules.
 
-; Example: if a process with binary mplayer starts audio output, move this
-;          stream to sink "HDA NVidia" but only if output DP-0 is connected
+; Example: if a process matching stream_class "videoplayers" starts audio
+;          output, move this stream to sink "HDA NVidia" but only if output
+;          DP-0 is connected
 [rule move_new_mplayer_to_nvidia]
 on_type=NewPlaybackStream
-on_application.process.binary=mplayer
+on_stream_class=videoplayers
 if_output_DP-0_connected=1
 true_stream_move_event_to_alsa.card_name=HDA NVidia
-true_exec=echo "moving mplayer to HDA NVidia"
+true_exec=echo "moving %event_application.process.binary% to HDA NVidia"
+true_exec=notify-send "mplugd moves %event_application.process.binary% (PID %event_application.process.id%) to HDA NVidia"
 
 
-; Example: if a process with binary mplayer starts audio output, move this
-;          stream to sink "HDA NVidia" but only if output DP-0 is disconnected
+
+; Example: if a process matching stream_class "videoplayers" starts audio
+;          output, move this stream to sink "HDA NVidia" but only if output
+;          DP-0 is disconnected
 [rule move_new_mplayer_to_intel]
 on_type=NewPlaybackStream
-on_application.process.binary=mplayer
+on_stream_class=videoplayers
 if_output_DP-0_connected=0
 true_stream_move_event_to_alsa.card_name=HDA Intel PCH
-true_exec=echo "moving mplayer to HDA Intel PCH"
+true_exec=echo "moving %event_application.process.binary% to HDA Intel PCH"
+true_exec=notify-send "mplugd moves %event_application.process.binary% (PID %event_application.process.id%) to HDA Intel PCH"
+
+
+; Example: stream class "videoplayers" stands for all streams that belong to a
+;          process with a binary named "mplayer", "vlc" or "*player"
+;
+;          *= allows regexp matching
+[stream_class videoplayers]
+stream_application.process.binary=mplayer
+stream_application.process.binary=vlc
+stream_application.process.binary*=player
+
+

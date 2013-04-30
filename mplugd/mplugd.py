@@ -223,7 +223,7 @@ def execute_rules(filename, event):
 			
 			for p in plugins:
 				if pl[1] in p.keywords:
-					p.handle_rule_cmd(sparser, pl, rules_substitute_value(v), mplugd.laststate, event)
+					p.handle_rule_cmd(sparser, pl, v, mplugd.laststate, event)
 					break
 		
 		# we execute true/false commands directly

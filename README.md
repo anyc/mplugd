@@ -28,3 +28,30 @@ Usage
    `mplugd -d`.
 2. Start `mplugd`. In case you manually installed python-xlib, you might need
    to add its location to PYTHONPATH before starting mplugd.
+
+Rules example
+-------------
+
+* If DP-[0-9] gets connected to a display, change default sink to the sink
+known as "HDA NVidia" card to ALSA and set the display configuration to
+automatic.
+
+		[rule on_dpX_connect]
+		on_type=OutputChangeNotify
+		on_name*=DP-[0-9]
+		on_connected=1
+		on_crtc=0
+		true_stream_set_defaultsink_to_alsa.card_name=HDA NVidia
+		true_exec=xrandr --output %event_name% --auto
+
+* If a process with the binary `mplayer` starts audio output and if output DP-0
+is connected, move this stream to sink "HDA NVidia", display a message in
+the console and send a notification to the desktop.
+
+		[rule move_new_mplayer_to_intel]
+		on_type=NewPlaybackStream
+		on_application.process.binary=mplayer
+		if_output_DP-0_connected=1
+		true_stream_move_event_to_alsa.card_name=HDA NVidia
+		true_exec=echo "moving mplayer to HDA NVidia"
+		true_exec=notify-send "mplugd moves mplayer to HDA Intel PCH"
