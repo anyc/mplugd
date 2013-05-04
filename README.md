@@ -54,4 +54,4 @@ the console and send a notification to the desktop.
 		if_output_DP-0_connected=1
 		true_stream_move_event_to_alsa.card_name=HDA NVidia
 		true_exec=echo "moving mplayer to HDA NVidia"
-		true_exec=notify-send "mplugd moves mplayer to HDA Intel PCH"
+		true_exec=notify-send "mplugd moves mplayer to HDA NVidia"

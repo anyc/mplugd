@@ -14,6 +14,12 @@ true_exec=echo "We're starting!"
 on_type=Shutdown
 true_exec=echo "We're stopping!"
 
+; Example: if an active port on a sink changes to "analog-output-speaker",
+;          print a message to the console
+[rule PA_port_event]
+on_type=ActivePortUpdated
+on_name=analog-output-speaker
+true_exec=echo "switch to \"%event_description%\" on device \"%event_device.name%\""
 
 ; Example: if DP-0 gets connected to a display with ID "SAMC906", change
 ;          default sink and all streams from class "musicplayers" to "HDA NVidia"

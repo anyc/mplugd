@@ -14,6 +14,9 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gobject import MainLoop as gMainLoop, threads_init as gthreads_init
 from dbus.glib import init_threads as ginit_threads
 from pprint import pprint, pformat
+
+if __name__ == "__main__":
+	sys.path.append("../")
 import header
 
 mplugd = None
@@ -23,7 +26,7 @@ eventloop = None
 # convert byte array to string
 def dbus2str(db):
 	if type(db)==dbus.Struct:
-		return tuple(dbus2str(i) for i in db)
+		return str(tuple(dbus2str(i) for i in db))
 	if type(db)==dbus.Array:
 		return "".join([dbus2str(i) for i in db])
 	if type(db)==dbus.Dictionary:
@@ -38,7 +41,7 @@ def dbus2str(db):
 		return db==True
 	if type(db)==dict:
 		return dict((dbus2str(key), dbus2str(value)) for key, value in db.items())
-	return ('type: %s'%type(db), db)
+	return "(%s:%s)" % (type(db), db)
 
 def dpprint(data, **kwargs):
 	pprint(dbus2str(data), **kwargs)
@@ -61,19 +64,33 @@ class PADbusWrapper(object):
 					dbus_addr = _sbus.get_object('org.PulseAudio1', '/org/pulseaudio/server_lookup1').Get('org.PulseAudio.ServerLookup1', 'Address', dbus_interface='org.freedesktop.DBus.Properties')
 			
 			except dbus.exceptions.DBusException as exception:
-				if exception.get_dbus_name() != 'org.freedesktop.DBus.Error.ServiceUnknown':
-					raise
-				print "Trying to start PA", exception
-				Popen(['pulseaudio', '--start', '--log-target=syslog'], stdout=open('/dev/null', 'w'), stderr=STDOUT).wait()
-				from time import sleep
-				sleep(1)
-				dbus_addr = False
+				#if exception.get_dbus_name() != 'org.freedesktop.DBus.Error.ServiceUnknown':
+					#raise
+				print "Could not connect to PA: ", exception
+				return
+				#import subprocess
+				#subprocess.Popen(['pulseaudio', '--start', '--log-target=syslog'], stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT).wait()
+				#from time import sleep
+				#sleep(1)
+				#dbus_addr = False
 		
 		if mplugd.verbose:
 			print "PA connecting to", dbus_addr
 		
 		self.bus = dbus.connection.Connection(dbus_addr)
 		self.core = self.bus.get_object(object_path='/org/pulseaudio/core1')
+	
+	def get_ports(self, sink):
+		#return ( dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' ) for path in 
+			#sink.Get('org.PulseAudio.Core1.Device', 'Ports') )
+		ports = [ (path, dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' )) for path in sink.Get('org.PulseAudio.Core1.Device', "Ports") ]
+		
+		#ports = dict((sink.Get('org.PulseAudio.Core1.Device', 'Name'), port) for port in ports)
+		#ports = dict((port.get_path(), port) for port in ports)
+		return ports
+	
+	def get_port_attr(self, port, attr):
+		return dbus2str(port.Get('org.PulseAudio.Core1.DevicePort', attr))
 	
 	def get_sinks(self):
 		sinks = ( dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' ) for path in 
@@ -128,9 +145,21 @@ class PAMP_Event(header.MP_Event):
 		self.event = event
 		self.path = path
 		
-		self.item = self.get_event_item()
+		self.item = None
+		self.get_event_item()
 	
 	def get_event_item(self):
+		if self.event.get_member() == "ActivePortUpdated":
+			if not str(self.event.get_path()) in mplugd.laststate["sink"]:
+				# TODO source events
+				self.ignore = True
+				return
+			
+			if self.path in mplugd.laststate["sink"][str(self.event.get_path())]._ports:
+				self.item = mplugd.laststate["sink"][str(self.event.get_path())]._ports[self.path]
+			else:
+				print "unknown port:", self.path
+		
 		if self.event.get_member() == "NewPlaybackStream" or self.event.get_member() == "PlaybackStreamRemoved":
 			# get additional info for the event's stream
 			# required for disconnect events because we cannot query the
@@ -138,10 +167,8 @@ class PAMP_Event(header.MP_Event):
 			newstreams = get_state_streams()
 			if self.path in newstreams.keys():
 				self.item = newstreams[self.path]
-				return self.item
 			elif self.path in mplugd.laststate["stream"].keys():
 				self.item = mplugd.laststate["stream"][self.path]
-				return self.item
 			else:
 				print "Did not find information on stream", self.path, newstreams
 	
@@ -154,6 +181,7 @@ class PA_event_loop(threading.Thread):
 		self.queue = queue
 		self.pa_wrapper = None
 		self.initflag = threading.Event()
+		self.loop = None
 		threading.Thread.__init__(self)
 	
 	def handler(self, path, sender=None, msg=None):
@@ -167,8 +195,12 @@ class PA_event_loop(threading.Thread):
 		self.pa_wrapper = PADbusWrapper(True)
 		self.pa_wrapper.initialize_pa_bus()
 		
+		if not self.pa_wrapper.bus:
+			self.initflag.set()
+			return
+		
 		# local callback handler
-		def cb_handler(path, sender=None, msg=None):
+		def cb_handler(path=None, sender=None, msg=None):
 			self.handler(path, sender, msg)
 		
 		self.pa_wrapper.bus.add_signal_receiver(cb_handler, message_keyword="msg")
@@ -177,6 +209,8 @@ class PA_event_loop(threading.Thread):
 		core1.ListenForSignal('org.PulseAudio.Core1.NewPlaybackStream', dbus.Array(signature="o"))
 		core1.ListenForSignal('org.PulseAudio.Core1.PlaybackStreamRemoved', dbus.Array(signature="o"))
 		
+		core1.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature="o"))
+		
 		self.loop = gMainLoop()
 		gthreads_init()
 		ginit_threads()
@@ -184,19 +218,18 @@ class PA_event_loop(threading.Thread):
 		self.initflag.set()
 		self.loop.run()
 
-# internal representation of a sink
-class Sink(object):
-	keys = ["name", "Driver", "Index", "Volume",
-		"Mute", "State", "Channels"]
+class PA_object(object):
+	keys = []
 	
-	def __init__(self):
-		self._data = None
+	def __init__(self, dbus_obj, pawrapper, get_attr):
+		self._obj = dbus_obj
 		self._props = None
-		self._pawrapper = None
+		self._pawrapper = pawrapper
+		self.get_attr = get_attr
 	
-	def cache_data(self):
+	def cache_obj(self):
 		for k in self.keys:
-			setattr(self, k, getattr(self, k))
+			setattr(self, k.lower(), getattr(self, k))
 	
 	def __getattr__(self, attr):
 		if attr == "name":
@@ -205,62 +238,82 @@ class Sink(object):
 		if self._props and attr in self._props:
 			return self._props[attr][:-1]
 		
-		val = self._pawrapper.get_sink_attr(self._data, attr)
-		if val:
+		if attr.find(".") > -1:
+			a = attr.split(".")
+			obj = self
+			for i in range(0, len(a)):
+				if hasattr(obj, a[i]):
+					obj = getattr(obj, a[i])
+				else:
+					raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+			return obj;
+			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+		
+		val = self.get_attr(self._obj, attr)
+		if val != None:
 			return val
 		
-		return ""
-		
+		raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+	
 	def __str__(self):
 		lst = {}
 		
 		for k in self.keys:
 			if hasattr(self, k):
 				lst[k] = getattr(self, k)
+			elif hasattr(self, k.lower()):
+				lst[k.lower()] = getattr(self, k.lower())
 		
-		for k,v in self._props.items():
-			lst[k] = v[:-1]
+		if self._props:
+			for k,v in self._props.items():
+				lst[k] = v[:-1]
 		
 		return pformat(lst, indent=5)
 
+# internal representation of a sink
+class Sink(PA_object):
+	keys = ["Name", "Driver", "Index", "Volume",
+		"Mute", "State", "Channels"]
+	
+	def __init__(self, dbus_obj, pawrapper):
+		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_sink_attr);
+		self._props = self.get_attr(dbus_obj, 'PropertyList')
+		
+		self._port_objs = eventloop.pa_wrapper.get_ports(self._obj)
+		self._ports = {}
+		for path,pobj in self._port_objs:
+			p = Port(pobj, pawrapper, self)
+			p.cache_obj()
+			self._ports[str(pobj.object_path)] = p
+
 # internal representation of a stream
-class Stream(object):
-	keys = ["name", "Driver", "Index", "Volume",
+class Stream(PA_object):
+	keys = ["Name", "Driver", "Index", "Volume",
 		"Mute", "Channels"]
 	
-	def __init__(self):
-		self._data = None
-		self._props = None
-		self._pawrapper = None
-	
-	def cache_data(self):
-		for k in self.keys:
-			setattr(self, k, getattr(self, k))
+	def __init__(self, dbus_obj, pawrapper):
+		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_stream_attr);
+		self._props = self.get_attr(dbus_obj, 'PropertyList')
 	
 	def __getattr__(self, attr):
 		if attr == "name" or attr == "Name":
 			return self._props["application.name"][:-1]
 		
-		if self._props and attr in self._props:
-			return self._props[attr][:-1]
-		
-		val = self._pawrapper.get_stream_attr(self._data, attr)
-		if val:
-			return val
-		
-		return ""
+		return PA_object.__getattr__(self, attr)
+
+# internal representation of a sink
+class Port(PA_object):
+	keys = ["Name", "Description", "Priority"]
 	
-	def __str__(self):
-		lst = {}
+	def __init__(self, dbus_obj, pawrapper, device):
+		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_port_attr);
+		self.device = device
+	
+	def __getattr__(self, attr):
+		if attr == "device":
+			return self.device
 		
-		for k in self.keys:
-			if hasattr(self, k):
-				lst[k] = getattr(self, k)
-		
-		for k,v in self._props.items():
-			lst[k] = v[:-1]
-		
-		return pformat(lst, indent=5)
+		return PA_object.__getattr__(self, attr)
 
 def get_state_sinks():
 	dic = {}
@@ -268,13 +321,10 @@ def get_state_sinks():
 	sinks = eventloop.pa_wrapper.get_sinks()
 	if sinks:
 		for sink in sinks.keys():
-			s = Sink()
-			s._data = sinks[sink]
-			s._props = eventloop.pa_wrapper.get_sink_attr(sinks[sink], 'PropertyList')
-			s._pawrapper = eventloop.pa_wrapper
-			s.cache_data()
+			s = Sink(sinks[sink], eventloop.pa_wrapper)
+			s.cache_obj()
 			
-			dic[s.Name] = s
+			dic[sinks[sink].object_path] = s
 	return dic
 
 def get_state_streams():
@@ -283,11 +333,8 @@ def get_state_streams():
 	streams = eventloop.pa_wrapper.get_streams()
 	if streams:
 		for stream in streams.keys():
-			s = Stream()
-			s._data = streams[stream]
-			s._props = eventloop.pa_wrapper.get_stream_attr(streams[stream], 'PropertyList')
-			s._pawrapper = eventloop.pa_wrapper
-			s.cache_data()
+			s = Stream(streams[stream], eventloop.pa_wrapper)
+			s.cache_obj()
 			
 			dic[streams[stream].object_path] = s
 	return dic
@@ -324,7 +371,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 			if sparser.match(val, getattr(v, "_".join(pl[5:]))):
 				if mplugd.verbose:
 					print "set sink to", k
-				eventloop.pa_wrapper.set_fallback_sink(v._data);
+				eventloop.pa_wrapper.set_fallback_sink(v._obj);
 	
 	elif pl[3] == "class":
 		#true_stream_move_class_asd_to_alsa.card_name=HDA NVidia
@@ -342,7 +389,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 						if sparser.match(option_val, getattr(stream, option_key[7:])):
 							if mplugd.verbose:
 								print "move", "\"%s\"" % option_val, "to", k
-							eventloop.pa_wrapper.move_stream2sink(stream._data, v._data)
+							eventloop.pa_wrapper.move_stream2sink(stream._obj, v._obj)
 	
 	elif pl[3] == "event":
 		#true_stream_move_event_to_alsa.card_name=HDA Intel PCH
@@ -351,7 +398,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 			if sparser.match(val, getattr(v, "_".join(pl[5:]))):
 				if mplugd.verbose:
 					print "move \"%s\" to \"%s\"" % ( event.item.Name, k)
-				eventloop.pa_wrapper.move_stream2sink(event.item._data, v._data)
+				eventloop.pa_wrapper.move_stream2sink(event.item._obj, v._obj)
 				break
 	else:
 		print __name__, "unknown command", "_".join(pl), val
@@ -364,3 +411,34 @@ def initialize(main,queue):
 	eventloop = PA_event_loop(queue)
 	
 	return eventloop
+
+if __name__ == "__main__":
+	def printhandler(path, sender=None, msg=None):
+		print "Event: ", path, sender, msg
+	
+	eventloop = PA_event_loop(None)
+	eventloop.handler = printhandler
+	
+	# workaround
+	mplugd = eventloop
+	mplugd.verbose = False
+	
+	eventloop.start()
+	eventloop.initflag.wait()
+	
+	if not eventloop.loop:
+		sys.exit(1)
+	
+	state = {}
+	get_state(state)
+	#print state["sink"][state["sink"].keys()[0]]
+	#print state["stream"][state["stream"].keys()[0]]
+	
+	sink = state["sink"][state["sink"].keys()[0]]
+	
+	print sink._ports[0].name
+	print ""
+	
+	print sink.ActivePort
+	#shutdown()
+	

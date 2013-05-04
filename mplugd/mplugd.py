@@ -25,6 +25,11 @@ class Event_Consumer(threading.Thread):
 			# pop blocks
 			val = self.queue.pop()
 			if val:
+				if val.ignore:
+					if mplugd.verbose:
+						print "Ignoring event: ", val
+					continue
+				
 				if mplugd.verbose:
 					print "Handling event: ", val
 				self.handle_event(val)
@@ -71,7 +76,7 @@ def rules_substitute_value(event, value):
 				sub = getattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:]))
 			
 			# result contains the substituted part of value
-			result = result + value[:res.start()] + sub
+			result = result + value[:res.start()] + str(sub)
 			# value contains the unprocessed part of the original value
 			value = value[res.end():]
 	

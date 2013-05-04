@@ -70,6 +70,7 @@ class MP_Event(object):
 		self.eventloop = None
 		self.item = None
 		self.etype = etype
+		self.ignore = False
 	
 	def __str__(self):
 		return "<Event %s etype=%s>" %(self.__class__.__name__, self.etype)
