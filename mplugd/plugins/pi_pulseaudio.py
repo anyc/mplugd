@@ -255,7 +255,7 @@ class PA_object(object):
 		
 		raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
 	
-	def __str__(self):
+	def getrepr(self):
 		lst = {}
 		
 		for k in self.keys:
@@ -267,8 +267,10 @@ class PA_object(object):
 		if self._props:
 			for k,v in self._props.items():
 				lst[k] = v[:-1]
-		
-		return pformat(lst, indent=5)
+		return lst
+	
+	def __str__(self):
+		return pformat(self.getrepr(), indent=5)
 
 # internal representation of a sink
 class Sink(PA_object):
@@ -285,6 +287,13 @@ class Sink(PA_object):
 			p = Port(pobj, pawrapper, self)
 			p.cache_obj()
 			self._ports[str(pobj.object_path)] = p
+	
+	def __str__(self):
+		lst = PA_object.getrepr(self)
+		lst["ports"] = {}
+		for k,v in self._ports.items():
+			lst["ports"][k] = v.getrepr()
+		return pformat(lst, indent=5)
 
 # internal representation of a stream
 class Stream(PA_object):

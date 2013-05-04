@@ -18,6 +18,13 @@ Requirements:
 	* For pulseaudio: dbus-python
 	* For X events: python-xlib (SVN revision > r160 or version > 0.15)
 
+Current list of event types
+---------------------------
+
+* New/removed Xorg displays
+* Applications starting/ending audio output through PulseAudio
+* PulseAudio port changes (e.g., plugged-in headphones)
+
 Usage
 -----
 
