@@ -67,9 +67,12 @@ class MPlugD(object):
 # root class for events
 class MP_Event(object):
 	def __init__(self, etype):
-		self.eventloop = None
-		self.item = None
-		self.etype = etype
+		self.eventloop = None # the event loop who created this event
+		self.item = None # the item which this event is about
+		self.etype = etype # the type of event
+		
+		# sometimes we get events that we're not interested in, this flag
+		# allows to "drop" a event during processing
 		self.ignore = False
 	
 	def __str__(self):

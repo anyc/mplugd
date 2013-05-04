@@ -46,6 +46,7 @@ def dbus2str(db):
 def dpprint(data, **kwargs):
 	pprint(dbus2str(data), **kwargs)
 
+# DBus wrapper class for PA
 class PADbusWrapper(object):
 	def __init__(self, verbose):
 		self.bus = None
@@ -81,13 +82,7 @@ class PADbusWrapper(object):
 		self.core = self.bus.get_object(object_path='/org/pulseaudio/core1')
 	
 	def get_ports(self, sink):
-		#return ( dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' ) for path in 
-			#sink.Get('org.PulseAudio.Core1.Device', 'Ports') )
-		ports = [ (path, dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' )) for path in sink.Get('org.PulseAudio.Core1.Device', "Ports") ]
-		
-		#ports = dict((sink.Get('org.PulseAudio.Core1.Device', 'Name'), port) for port in ports)
-		#ports = dict((port.get_path(), port) for port in ports)
-		return ports
+		return [ (path, dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' )) for path in sink.Get('org.PulseAudio.Core1.Device', "Ports") ]
 	
 	def get_port_attr(self, port, attr):
 		return dbus2str(port.Get('org.PulseAudio.Core1.DevicePort', attr))
@@ -136,7 +131,7 @@ class PADbusWrapper(object):
 		print "error", attr
 		raise AttributeError
 
-# class for Pulseaudio events
+# Pulseaudio event class
 class PAMP_Event(header.MP_Event):
 	def __init__(self, eventloop, event, sender, path):
 		super(PAMP_Event, self).__init__(event.get_member())
@@ -148,15 +143,16 @@ class PAMP_Event(header.MP_Event):
 		self.item = None
 		self.get_event_item()
 	
+	# process the "raw" event from DBUS and set self.item to the item in question
 	def get_event_item(self):
 		if self.event.get_member() == "ActivePortUpdated":
 			if not str(self.event.get_path()) in mplugd.laststate["sink"]:
-				# TODO source events
+				# TODO source events, we only handle sinks for now
 				self.ignore = True
 				return
 			
-			if self.path in mplugd.laststate["sink"][str(self.event.get_path())]._ports:
-				self.item = mplugd.laststate["sink"][str(self.event.get_path())]._ports[self.path]
+			if self.path in mplugd.laststate["sink"][str(self.event.get_path())].ports:
+				self.item = mplugd.laststate["sink"][str(self.event.get_path())].ports[self.path]
 			else:
 				print "unknown port:", self.path
 		
@@ -184,6 +180,7 @@ class PA_event_loop(threading.Thread):
 		self.loop = None
 		threading.Thread.__init__(self)
 	
+	# push event into main queue
 	def handler(self, path, sender=None, msg=None):
 		self.queue.push(PAMP_Event(self, msg, sender, path))
 	
@@ -218,6 +215,7 @@ class PA_event_loop(threading.Thread):
 		self.initflag.set()
 		self.loop.run()
 
+# Parent class for all internal representations of PA objects
 class PA_object(object):
 	keys = []
 	
@@ -227,6 +225,7 @@ class PA_object(object):
 		self._pawrapper = pawrapper
 		self.get_attr = get_attr
 	
+	# store object attributes locally (required after the remote PA object vanished)
 	def cache_obj(self):
 		for k in self.keys:
 			setattr(self, k.lower(), getattr(self, k))
@@ -235,9 +234,11 @@ class PA_object(object):
 		if attr == "name":
 			return self.Name
 		
+		# check if attribute is in the property dictionary
 		if self._props and attr in self._props:
 			return self._props[attr][:-1]
 		
+		# check if requested attribute is part of a sub-object
 		if attr.find(".") > -1:
 			a = attr.split(".")
 			obj = self
@@ -249,12 +250,14 @@ class PA_object(object):
 			return obj;
 			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
 		
+		# query PA over dbus if it knows the attribute
 		val = self.get_attr(self._obj, attr)
 		if val != None:
 			return val
 		
 		raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
 	
+	# __str__ helper
 	def getrepr(self):
 		lst = {}
 		
@@ -281,17 +284,18 @@ class Sink(PA_object):
 		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_sink_attr);
 		self._props = self.get_attr(dbus_obj, 'PropertyList')
 		
+		# get the list of ports for this device
 		self._port_objs = eventloop.pa_wrapper.get_ports(self._obj)
-		self._ports = {}
+		self.ports = {}
 		for path,pobj in self._port_objs:
 			p = Port(pobj, pawrapper, self)
 			p.cache_obj()
-			self._ports[str(pobj.object_path)] = p
+			self.ports[str(pobj.object_path)] = p
 	
 	def __str__(self):
 		lst = PA_object.getrepr(self)
 		lst["ports"] = {}
-		for k,v in self._ports.items():
+		for k,v in self.ports.items():
 			lst["ports"][k] = v.getrepr()
 		return pformat(lst, indent=5)
 
@@ -324,6 +328,7 @@ class Port(PA_object):
 		
 		return PA_object.__getattr__(self, attr)
 
+# query PA for a list of sinks
 def get_state_sinks():
 	dic = {}
 	
@@ -336,6 +341,7 @@ def get_state_sinks():
 			dic[sinks[sink].object_path] = s
 	return dic
 
+# query PA for a list of streams
 def get_state_streams():
 	dic = {}
 	
@@ -440,14 +446,15 @@ if __name__ == "__main__":
 	
 	state = {}
 	get_state(state)
+	
+	print state
+	
 	#print state["sink"][state["sink"].keys()[0]]
 	#print state["stream"][state["stream"].keys()[0]]
 	
-	sink = state["sink"][state["sink"].keys()[0]]
+	#sink = state["sink"][state["sink"].keys()[0]]
+	#print sink.ports[0].name
+	#print sink.ActivePort
 	
-	print sink._ports[0].name
-	print ""
-	
-	print sink.ActivePort
-	#shutdown()
+	shutdown()
 	

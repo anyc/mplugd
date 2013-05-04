@@ -38,6 +38,8 @@ class Output(object):
 	
 	def __str__(self):
 		lst = {}
+		
+		# keys we will show during a dump
 		keys = ["name", "connected", "model_name", "id_string","crtc",
 			"mm_width","mm_height","subpixel_order","crtcs",
 			"modes", "clones", "serial_number", "date", "video_input_def",
@@ -72,6 +74,7 @@ class XMP_Event(header.MP_Event):
 		self.eventloop = eventloop
 		self.item = self.get_event_item()
 	
+	# process the "raw" event from Xorg and set self.item to the item in question
 	def get_event_item(self):
 		if self.etype == "OutputChangeNotify":
 			# get additional info for the event's output
