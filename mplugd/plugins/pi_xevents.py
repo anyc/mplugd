@@ -188,7 +188,7 @@ def initialize(main,queue):
 	mplugd = main
 	
 	if int(Xlib.__version__[0]) == 0 and int(Xlib.__version__[1]) <= 15 and not hasattr(Xlib.display.Display, "extension_add_subevent"):
-		print "Require at list python-xlib SVN revision > r160 or version > 0.15. Your version:", Xlib.__version_string__
+		print "Require at least python-xlib SVN revision > r160 or version > 0.15. Your version:", Xlib.__version_string__
 		return None
 	
 	eventloop = X_event_loop(queue)

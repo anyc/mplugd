@@ -331,26 +331,29 @@ def main():
 
 	# print all we know about the current state and exit
 	if state_dump:
-		print "===================="
-		print "Xorg"
-		print ""
-		for k,v in mplugd.laststate["output"].items():
-			print v.name, "(ID: %s)" % k
-			print str(v)
+		if "output" in mplugd.laststate:
+			print "===================="
+			print "Xorg"
+			print ""
+			for k,v in mplugd.laststate["output"].items():
+				print v.name, "(ID: %s)" % k
+				print str(v)
 		
 		print ""
 		print "===================="
 		print "PulseAudio:"
 		
-		for k,v in mplugd.laststate["sink"].items():
-			print ""
-			print getattr(v, "alsa.card_name"), "(ID: %s)" % k
-			print str(v)
+		if "sink" in mplugd.laststate:
+			for k,v in mplugd.laststate["sink"].items():
+				print ""
+				print getattr(v, "alsa.card_name"), "(ID: %s)" % k
+				print str(v)
 		
-		for k,v in mplugd.laststate["stream"].items():
-			print ""
-			print v.name, "(ID: %s)" % k
-			print str(v)
+		if "stream" in mplugd.laststate:
+			for k,v in mplugd.laststate["stream"].items():
+				print ""
+				print v.name, "(ID: %s)" % k
+				print str(v)
 		
 		shutdown()
 		sys.exit(0)

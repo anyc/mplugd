@@ -31,7 +31,7 @@ Usage
 1. Place your rules/scripts either into `/etc/mplugd/action.d/`,
    `~/mplugd/action.d/` or `$SRCDIR/mplugd/action.d/`. For examples, look into
    `mplugd/examples/action.d/`. Only files ending with `.py` or `.rules` are
-   considered. You can loop-up the values for your current system using
+   considered. You can look-up the values for your current system using
    `mplugd -d`.
 2. Start `mplugd`. In case you manually installed python-xlib, you might need
    to add its location to PYTHONPATH before starting mplugd.
