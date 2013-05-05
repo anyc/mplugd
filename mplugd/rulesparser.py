@@ -89,17 +89,21 @@ class MyRulesParser(object):
 	
 	# test if "test" matches one of the values
 	def match(self, values, test):
+		val = self.getmatch(values, test)
+		return val != None
+	
+	def getmatch(self, values, test, prefix=""):
 		for v in values:
 			#expression = "\"%s\"" % v + seper + "\"%s\"" %test
 			#return eval(expression)
 			
-			if v.sep == "=" and str(v) == str(test):
-				return True
-			if v.sep == "!=" and str(v) != str(test):
-				return True
-			if v.sep == "*=" and re.search(str(v), str(test)) != None:
-				return True
-		return False
+			if v.sep == "=" and prefix + str(v) == str(test):
+				return v
+			if v.sep == "!=" and prefix + str(v) != str(test):
+				return v
+			if v.sep == "*=" and re.search(prefix + str(v), str(test)) != None:
+				return v
+		return None
 
 if __name__ == '__main__':
 	parser = MyRulesParser()

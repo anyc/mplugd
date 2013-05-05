@@ -79,7 +79,12 @@ class PADbusWrapper(object):
 			print "PA connecting to", dbus_addr
 		
 		self.bus = dbus.connection.Connection(dbus_addr)
+		
+		# get PA's core object
 		self.core = self.bus.get_object(object_path='/org/pulseaudio/core1')
+		# get the stream restore database
+		self.ext_restore = dbus.Interface( self.bus.get_object(object_path="/org/pulseaudio/stream_restore1"), dbus_interface='org.freedesktop.DBus.Properties' )
+		
 	
 	def get_ports(self, sink):
 		return [ (path, dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' )) for path in sink.Get('org.PulseAudio.Core1.Device', "Ports") ]
@@ -115,6 +120,33 @@ class PADbusWrapper(object):
 	
 	def set_fallback_sink(self, sink):
 		self.core.Set('org.PulseAudio.Core1', 'FallbackSink', sink, signature="ssv")
+	
+	def get_restore_entries(self):
+		entries = ( dbus.Interface( self.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' ) for path in 
+		   self.ext_restore.Get('org.PulseAudio.Ext.StreamRestore1', 'Entries', dbus_interface='org.freedesktop.DBus.Properties' ) )
+		
+		entries = [(entry.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Name'), entry) for entry in entries]
+		return entries
+	
+	def set_restore_entry(self, entry, device):
+		entry.Set('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device', device)
+		#entries = self.get_restore_entries()
+		
+		#found = False
+		#for e in entries:
+			#ename = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Name')
+			##edev = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device')
+			
+			#if str(ename) == "sink-input-by-application-name:%s" % name or \
+					#str(ename) == "sink-input-by-application-name: ALSA plug-in [%s]" % name:
+				##e.Set('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device', "alsa_output.pci-0000_01_00.1.hdmi-stereo")
+				##e.Set('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device', "alsa_output.pci-0000_00_1b.0.analog-stereo")
+				##print "set", name, "to", device
+				#e.Set('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device', device)
+				#found = True
+		
+		#if not found:
+			#print "set_restore_entry: no entry found for", name
 	
 	def __getattr__(self, attr):
 		if hasattr(self, "get_%s" % attr):
@@ -278,7 +310,7 @@ class PA_object(object):
 # internal representation of a sink
 class Sink(PA_object):
 	keys = ["Name", "Driver", "Index", "Volume",
-		"Mute", "State", "Channels"]
+		"Mute", "State", "Channels", "ActivePort"]
 	
 	def __init__(self, dbus_obj, pawrapper):
 		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_sink_attr);
@@ -399,8 +431,21 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		
 		for k,v in state["sink"].items():
 			if sparser.match(val, getattr(v, "_".join(pl[6:]))):
+				rentries = eventloop.pa_wrapper.get_restore_entries()
+				
 				for option_key,option_val in sparser.items(sc_section):
+					# set restore entry for new streams
+					for name, entry in rentries:
+						match = sparser.getmatch(option_val, name, "sink-input-by-%s:" % option_key[7:].replace(".", "-"))
+						if match != None:
+							if mplugd.verbose:
+								print "set restore entry of", "\"%s\"" % name, "to", v.name
+							eventloop.pa_wrapper.set_restore_entry(entry, v.name)
+					
+					# switch running streams
 					for stream in state["stream"].values():
+						if not hasattr(stream, option_key[7:]):
+							continue
 						if sparser.match(option_val, getattr(stream, option_key[7:])):
 							if mplugd.verbose:
 								print "move", "\"%s\"" % option_val, "to", k
@@ -447,14 +492,19 @@ if __name__ == "__main__":
 	state = {}
 	get_state(state)
 	
-	print state
+	#print state
 	
-	#print state["sink"][state["sink"].keys()[0]]
-	#print state["stream"][state["stream"].keys()[0]]
 	
-	#sink = state["sink"][state["sink"].keys()[0]]
-	#print sink.ports[0].name
-	#print sink.ActivePort
+	ext_restore = dbus.Interface( eventloop.pa_wrapper.bus.get_object(object_path="/org/pulseaudio/stream_restore1"), dbus_interface='org.freedesktop.DBus.Properties' )
+	
+	entries = ( dbus.Interface( eventloop.pa_wrapper.bus.get_object(object_path=path), dbus_interface='org.freedesktop.DBus.Properties' ) for path in 
+		ext_restore.Get('org.PulseAudio.Ext.StreamRestore1', 'Entries', dbus_interface='org.freedesktop.DBus.Properties' ) )
+	
+	for e in entries:
+		name = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Name'),
+		dev = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device')
+		
+		print str(name[0]), "--", dev
 	
 	shutdown()
 	

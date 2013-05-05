@@ -58,8 +58,13 @@ true_exec=xrandr --output DP-0 --off
 
 ; Please note: there are other tools like mixers or PA itself that restore
 ; the output sink for a process. If such tools are active, setting the
-; default sink has no effect. Instead, we actively set the output sink
-; for new processes with the following two rules.
+; global default sink has no effect. With mplugd we have two options, either
+; we wait for new streams and set the output sink with additional rules or
+; we modify the restore database of PA. The key value of the database is not
+; fixed, so one has to make sure to use the right parameter in the stream
+; class. You can execute "plugins/pi_pulseaudio.py" directly the get a dump
+; of the current restore database. We recommend to set the sink using
+; additional rules, e.g., see to following two sections.
 
 ; Example: if a process with binary mplayer starts audio output, move this
 ;          stream to sink "HDA NVidia" but only if output DP-0 is connected
@@ -85,7 +90,7 @@ true_exec=echo "moving mplayer to HDA Intel PCH"
 [rule match_class_of_streams]
 on_type=NewPlaybackStream
 on_stream_class=musicplayers
-true_exec=echo "a music player is running"
+true_exec=echo "a music player started to play"
 
 ; Example: stream class "musicplayers" stands for all streams that belong to a
 ;          process with a binary named "mplayer", "vlc" or "*player"
@@ -95,3 +100,14 @@ true_exec=echo "a music player is running"
 stream_application.process.binary=mplayer
 stream_application.process.binary=vlc
 stream_application.process.binary*=player
+;
+; To automatically set the value in PA's stream restore database, one has
+; to use the matching attribute here. See the output of
+; "plugins/pi_pulseaudio.py" for your current database. E.g., for the
+; application.name attribute it makes a difference if the application uses
+; PA directly or through ALSA (App -> ALSA -> PulseAudio -> ALSA -> Hardware).
+;
+stream_application.name=ALSA plug-in [mplayer]
+stream_application.name=ALSA plug-in [vlc]
+stream_application.id=org.VideoLAN.VLC
+
