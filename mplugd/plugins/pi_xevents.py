@@ -99,9 +99,6 @@ class XMP_Event(header.MP_Event):
 			return self.item
 		
 		return None
-	
-	def __str__(self):
-		return "<Event %s etype=%s>" %(self.__class__.__name__, self.etype)
 
 # main event loop thread of this plugin
 class X_event_loop(threading.Thread):
@@ -145,8 +142,6 @@ class X_event_loop(threading.Thread):
 		while not self.stop:
 			for x in range(0, self.root.display.pending_events()):
 				e = self.root.display.next_event()
-				if mplugd.verbose:
-					print "new event: ", e
 				mp_ev = XMP_Event(self, e)
 				self.queue.push(mp_ev)
 			
@@ -179,6 +174,14 @@ def get_state_outputs():
 
 def get_state(state):
 	state["output"] = get_state_outputs()
+
+def dump_state(state):
+	if "output" in state:
+		print "Xorg"
+		print ""
+		for k,v in state["output"].items():
+			print v.name, "(ID: %s)" % k
+			print str(v)
 
 def shutdown():
 	eventloop.stop = True

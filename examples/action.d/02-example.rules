@@ -120,6 +120,18 @@ stream_application.name=ALSA plug-in [mplayer]
 stream_application.name=ALSA plug-in [vlc]
 stream_application.id=org.VideoLAN.VLC
 
+; Example: if a port is changed in PulseAudio, write a message to the console
 [rule PA_port_event]
 on_type=ActivePortUpdated
 true_exec=echo "switch to \"%event_description%\" on device \"%event_device.name%\""
+
+; Example: if a device with a name matching dvb[0-9].frontend[0-9] appears and
+;          if block device "sdc" is present, start recording with mplayer
+[rule udev_example]
+on_type=UdevAdd
+on_name*=dvb[0-9].frontend[0-9]
+# is there a device with name "sdc" in subsystem "block"?
+if_udev_device_block_name=sdc
+true_exec=echo "%event_type% device: %event_name%, starting record"
+# start a thread that executes this command
+true_exec_thread=mplayer dvb:// -dumpstream -dumpfile /mnt/sda/dump.ts

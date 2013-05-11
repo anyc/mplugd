@@ -8,7 +8,9 @@
 #
 
 import threading, re, os, __init__
+from pprint import pprint, pformat
 
+mplugd = None
 default_config = {
 		"configfiles": ["/etc/mplugd/mplugd.conf", "~/.mplugd/mplugd.conf", os.path.dirname(__file__)+"/mplugd.conf"],
 		"plugin_directory": [os.path.dirname(__file__)+"/plugins", "/etc/mplugd/plugins", "~/.mplugd/plugins"],
@@ -111,4 +113,50 @@ class EventQueue(object):
 		
 		return val
 
-mplugd = None
+# Parent class for all internal representations of PA objects
+class MP_object(object):
+	keys = []
+	
+	def __init__(self, obj, get_attr):
+		self._obj = obj
+		self.get_attr = get_attr
+	
+	# store object attributes locally (required after the remote PA object vanished)
+	def cache_obj(self):
+		for k in self.keys:
+			setattr(self, k.lower(), getattr(self, k))
+	
+	def __getattr__(self, attr):
+		# check if requested attribute is part of a sub-object
+		if attr.find(".") > -1:
+			a = attr.split(".")
+			obj = self
+			for i in range(0, len(a)):
+				if hasattr(obj, a[i]):
+					obj = getattr(obj, a[i])
+				else:
+					raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+			return obj;
+			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+		
+		# query PA over dbus if it knows the attribute
+		val = self.get_attr(self._obj, attr)
+		if val != None:
+			return val
+		
+		raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+	
+	# __str__ helper
+	def getrepr(self):
+		lst = {}
+		
+		for k in self.keys:
+			if hasattr(self, k):
+				lst[k] = getattr(self, k)
+			elif hasattr(self, k.lower()):
+				lst[k.lower()] = getattr(self, k.lower())
+		
+		return lst
+	
+	def __str__(self):
+		return pformat(self.getrepr(), indent=5)

@@ -70,6 +70,8 @@ def rules_substitute_value(event, value):
 			sub = ""
 			vlist = res.group(1).split("_")
 			
+			if res.group(1) == "event_type":
+				sub = event.etype
 			if vlist[0] == "event" and event.item and hasattr(event.item, "_".join(vlist[1:])):
 				sub = getattr(event.item, "_".join(vlist[1:]))
 			if vlist[0] in mplugd.laststate and vlist[1] in mplugd.laststate[vlist[0]] and hasattr(mplugd.laststate[vlist[0]][vlist[1]], "_".join(vlist[2:])):
@@ -82,6 +84,19 @@ def rules_substitute_value(event, value):
 	
 	# return substituted string and the remaining part of value
 	return result + value
+
+class ThreadedCommand(threading.Thread):
+	def __init__(self, cmd):
+		self.cmd = cmd
+		threading.Thread.__init__(self)
+
+	def run(self):
+		#subprocess.call(self.cmd, shell=True)
+		# required for mplayer
+		subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+		
+		if mplugd.verbose:
+			print "thead executing \"%s\" returned." % self.cmd
 
 # process rules file from action.d/
 def execute_rules(filename, event):
@@ -99,9 +114,19 @@ def execute_rules(filename, event):
 		if mplugd.verbose:
 			print "Processing section", s
 		
+		# start itemlist with on_ items
+		itemlist = []
+		for (k,v) in sparser.items(s):
+			if k.startswith("on_"):
+				itemlist.append((k,v))
+		
+		for (k,v) in sparser.items(s):
+			if not k.startswith("on_"):
+				itemlist.append((k,v))
+		
 		# evaluate all if conditions in this section
 		execute = True
-		for (k,values) in sparser.items(s):
+		for (k,values) in itemlist:
 			# we're only interested in conditions here
 			if k.split("_")[0] == "true" or k.split("_")[0] == "false":
 				continue
@@ -145,6 +170,24 @@ def execute_rules(filename, event):
 				# if_output_DP-0_connected=1
 				
 				ki = k[len("if_"):].split("_")
+				
+				found=False
+				pl = k.split("_")
+				for p in plugins:
+					if pl[1] in p.keywords and hasattr(p, "handle_rule_condition"):
+						found = True
+						break
+				
+				if found:
+					ignore, valid = p.handle_rule_condition(sparser, pl, values, mplugd.laststate, event)
+					if not ignore:
+						if valid:
+							if mplugd.verbose:
+								print ki[0], "match"
+							continue
+						else:
+							execute = False
+							break
 				
 				if not ki[0] in mplugd.laststate:
 					if mplugd.verbose:
@@ -238,25 +281,42 @@ def execute_rules(filename, event):
 			if not pl[0] == str(execute).lower():
 				continue
 			
+			if pl[1] == "exec":
+				if len(pl) == 2:
+					for cmd in v:
+						cmd = rules_substitute_value(event, cmd)
+						if mplugd.verbose:
+							print "exec", cmd
+						subprocess.call(cmd, shell=True)
+				if len(pl) == 3 and pl[2] == "thread":
+					for cmd in v:
+						cmd = rules_substitute_value(event, cmd)
+						if mplugd.verbose:
+							print "exec_thread", cmd
+						t = ThreadedCommand(cmd)
+						t.start()
+			
 			for p in plugins:
 				if pl[1] in p.keywords:
 					p.handle_rule_cmd(sparser, pl, v, mplugd.laststate, event)
 					break
+			
+			
 		
 		# we execute true/false commands directly
-		cmd = None
-		if execute:
-			if sparser.has_option(s, "true_exec"):
-				cmd = sparser.get(s, "true_exec")
-		else:
-			if sparser.has_option(s, "false_exec"):
-				cmd = sparser.get(s, "false_exec")
-		if cmd:
-			for c in cmd:
-				c = rules_substitute_value(event, c)
-				if mplugd.verbose:
-					print "exec", c
-				subprocess.call(c, shell=True)
+		#cmd = None
+		#if execute:
+			#if sparser.has_option(s, "true_exec"):
+				#cmd = sparser.get(s, "true_exec")
+		#else:
+			#if sparser.has_option(s, "false_exec"):
+				#cmd = sparser.get(s, "false_exec")
+		#if cmd:
+			#for c in cmd:
+				#c = rules_substitute_value(event, c)
+				#if mplugd.verbose:
+					#print "exec", c
+				#subprocess.call(c, shell=True)
 
 # query plugins for their state
 def get_state():
@@ -326,10 +386,15 @@ and executes user-defined actions on certain events.')
 						print "starting plugin", filename
 					mod = __import__(".".join(filename.split(".")[:-1]))
 					
+					if not hasattr(mod, "initialize"):
+						print "Initialization of plugin %s failed" % filename
+						continue
+					
 					# initialize all constructs
 					if not mod.initialize(mplugd, q):
 						print "Initialization of plugin %s failed" % filename
 						continue
+					
 					plugins.append(mod)
 					
 					# start event loop thread
@@ -345,29 +410,11 @@ and executes user-defined actions on certain events.')
 
 	# print all we know about the current state and exit
 	if state_dump:
-		if "output" in mplugd.laststate:
-			print "===================="
-			print "Xorg"
-			print ""
-			for k,v in mplugd.laststate["output"].items():
-				print v.name, "(ID: %s)" % k
-				print str(v)
-		
-		print ""
-		print "===================="
-		print "PulseAudio:"
-		
-		if "sink" in mplugd.laststate:
-			for k,v in mplugd.laststate["sink"].items():
+		for plugin in plugins:
+			if hasattr(plugin, "dump_state"):
+				print "===================="
+				plugin.dump_state(mplugd.laststate)
 				print ""
-				print getattr(v, "alsa.card_name"), "(ID: %s)" % k
-				print str(v)
-		
-		if "stream" in mplugd.laststate:
-			for k,v in mplugd.laststate["stream"].items():
-				print ""
-				print v.name, "(ID: %s)" % k
-				print str(v)
 		
 		shutdown()
 		sys.exit(0)

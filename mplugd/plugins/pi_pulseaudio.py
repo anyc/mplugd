@@ -17,7 +17,8 @@ from pprint import pprint, pformat
 
 if __name__ == "__main__":
 	sys.path.append("../")
-import header
+
+from header import MP_Event, MP_object
 
 mplugd = None
 keywords = ["pa", "stream", "sink"]
@@ -164,7 +165,7 @@ class PADbusWrapper(object):
 		raise AttributeError
 
 # Pulseaudio event class
-class PAMP_Event(header.MP_Event):
+class PAMP_Event(MP_Event):
 	def __init__(self, eventloop, event, sender, path):
 		super(PAMP_Event, self).__init__(event.get_member())
 		self.eventloop = eventloop
@@ -245,20 +246,11 @@ class PA_event_loop(threading.Thread):
 		self.initflag.set()
 		self.loop.run()
 
-# Parent class for all internal representations of PA objects
-class PA_object(object):
-	keys = []
-	
+class PA_object(MP_object):
 	def __init__(self, dbus_obj, pawrapper, get_attr):
-		self._obj = dbus_obj
+		MP_object.__init__(self, dbus_obj, get_attr);
 		self._props = None
 		self._pawrapper = pawrapper
-		self.get_attr = get_attr
-	
-	# store object attributes locally (required after the remote PA object vanished)
-	def cache_obj(self):
-		for k in self.keys:
-			setattr(self, k.lower(), getattr(self, k))
 	
 	def __getattr__(self, attr):
 		if attr == "name":
@@ -268,42 +260,18 @@ class PA_object(object):
 		if self._props and attr in self._props:
 			return self._props[attr][:-1]
 		
-		# check if requested attribute is part of a sub-object
-		if attr.find(".") > -1:
-			a = attr.split(".")
-			obj = self
-			for i in range(0, len(a)):
-				if hasattr(obj, a[i]):
-					obj = getattr(obj, a[i])
-				else:
-					raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
-			return obj;
-			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
-		
-		# query PA over dbus if it knows the attribute
-		val = self.get_attr(self._obj, attr)
-		if val != None:
-			return val
-		
-		raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
+		return MP_object.__getattr__(self, attr)
 	
 	# __str__ helper
 	def getrepr(self):
 		lst = {}
 		
-		for k in self.keys:
-			if hasattr(self, k):
-				lst[k] = getattr(self, k)
-			elif hasattr(self, k.lower()):
-				lst[k.lower()] = getattr(self, k.lower())
+		lst.update(MP_object.getrepr(self))
 		
 		if self._props:
 			for k,v in self._props.items():
 				lst[k] = v[:-1]
 		return lst
-	
-	def __str__(self):
-		return pformat(self.getrepr(), indent=5)
 
 # internal representation of a sink
 class Sink(PA_object):
@@ -462,6 +430,21 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 				break
 	else:
 		print __name__, "unknown command", "_".join(pl), val
+
+def dump_state(state):
+	print "PulseAudio:"
+	
+	if "sink" in state:
+		for k,v in state["sink"].items():
+			print ""
+			print getattr(v, "alsa.card_name"), "(ID: %s)" % k
+			print str(v)
+	
+	if "stream" in state:
+		for k,v in state["stream"].items():
+			print ""
+			print v.name, "(ID: %s)" % k
+			print str(v)
 
 def initialize(main,queue):
 	global mplugd
