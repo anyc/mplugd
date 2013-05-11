@@ -11,19 +11,22 @@ event types. Actions can be defined using INI-like rule files or simple
 scripts.
 
 A common use-case is automatic configuration of plugged-in devices like HDMI
-or DisplayPort displays including switch of audio output using pulseaudio.
+or DisplayPort displays including switch of audio output using pulseaudio. It
+also enables automatic actions on udev events without root access.
 
 Requirements:
 
 	* For pulseaudio: dbus-python
 	* For X events: python-xlib (SVN revision > r160 or version > 0.15)
+	* For udev: pyudev
 
-Current list of event types
----------------------------
+Examples of supported events
+----------------------------
 
 * New/removed Xorg displays
 * Applications starting/ending audio output through PulseAudio
 * PulseAudio port changes (e.g., plugged-in headphones)
+* Udev events (e.g., new/removed devices or changed properties)
 
 Usage
 -----
@@ -62,3 +65,13 @@ the console and send a notification to the desktop.
 		true_stream_move_event_to_alsa.card_name=HDA NVidia
 		true_exec=echo "moving mplayer to HDA NVidia"
 		true_exec=notify-send "mplugd moves mplayer to HDA NVidia"
+
+* If a device with a name matching `dvb[0-9].frontend[0-9]` appears and if
+block device `sdc` is present, start recording with mplayer
+
+		[rule udev_example]
+		on_type=UdevAdd
+		on_name*=dvb[0-9].frontend[0-9]
+		if_udev_device_block_name=sdc
+		true_exec=echo "%event_type% device: %event_name%, starting record"
+		true_exec_thread=mplayer dvb:// -dumpstream -dumpfile /mnt/sda/dump.ts

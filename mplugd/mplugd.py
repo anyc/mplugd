@@ -384,7 +384,12 @@ and executes user-defined actions on certain events.')
 				if filename[:2] == "pi" and filename.split(".")[-1] == "py":
 					if mplugd.verbose:
 						print "starting plugin", filename
-					mod = __import__(".".join(filename.split(".")[:-1]))
+					try:
+						mod = __import__(".".join(filename.split(".")[:-1]))
+					except ImportError, e:
+						print "ImportError:", e
+						print "Initialization of plugin %s failed" % filename
+						continue
 					
 					if not hasattr(mod, "initialize"):
 						print "Initialization of plugin %s failed" % filename
