@@ -3,8 +3,8 @@ import glob, os
 
 def get_datafiles():
 	l = [("share/mplugd", ["mplugd.conf.example"])]
-	prefix = "share/"
-	for root, dirs, files in os.walk("mplugd/examples/action.d/"):
+	prefix = "share/mplugd/"
+	for root, dirs, files in os.walk("examples/action.d/"):
 		f = []
 		for filename in files:
 			fullpath = os.path.join(root, filename)
