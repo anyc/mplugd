@@ -129,6 +129,18 @@ def execute_rules(filename, event):
 					execute = False
 					break
 			
+			elif k == "if_exec":
+				for cmd in values:
+					retval = subprocess.call(cmd, shell=True)
+					if retval:
+						if mplugd.verbose:
+							print cmd, "returned:", retval, "expected 0"
+						execute = False
+						break
+					else:
+						if mplugd.verbose:
+							print "match"
+			
 			elif k[:len("if_")] == "if_":
 				# if_output_DP-0_connected=1
 				
@@ -279,7 +291,9 @@ def main():
 	global c
 	global mplugd
 	
-	parser = argparse.ArgumentParser(description='Executes user-defined actions on XRANDR events')
+	parser = argparse.ArgumentParser(
+		description='mplugd is a daemon that listens on events (e.g. xrandr or pulseaudio) \
+and executes user-defined actions on certain events.')
 	parser.add_argument('-v', dest='verbose', help='verbose output', action='store_true')
 	parser.add_argument('-d', dest='state_dump', help='only dump state', action='store_true')
 

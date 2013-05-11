@@ -217,8 +217,6 @@ class PA_event_loop(threading.Thread):
 		self.queue.push(PAMP_Event(self, msg, sender, path))
 	
 	def run(self):
-		if mplugd.verbose:
-			print "Starting PADBUS"
 		DBusGMainLoop(set_as_default=True)
 		
 		self.pa_wrapper = PADbusWrapper(True)
@@ -409,6 +407,8 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		
 		for k,v in sparser.items(sc_section):
 			if sparser.match(v, getattr(event.item, k[7:])):
+				if mplugd.verbose:
+					print "match"
 				return True
 	
 	elif pl[2] == "set" and pl[3] == "defaultsink":

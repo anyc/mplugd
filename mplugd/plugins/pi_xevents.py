@@ -58,7 +58,12 @@ def get_edid(display, output_nr):
 	
 	props = display.xrandr_list_output_properties(output_nr)
 	if PROPERTY_EDID in props.atoms:
-		edidstream = display.xrandr_get_output_property(output_nr, PROPERTY_EDID, INT_TYPE, 0, 400)._data['value']
+		try:
+			rawedid = display.xrandr_get_output_property(output_nr, PROPERTY_EDID, INT_TYPE, 0, 400)
+		except:
+			print "error loading EDID data of output", output_nr
+			return None
+		edidstream = rawedid._data['value']
 		e2 = ''.join(map(chr, edidstream))
 		e = edid.Edid(e2)
 		

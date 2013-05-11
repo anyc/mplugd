@@ -85,6 +85,15 @@ if_output_DP-0_connected=0
 true_stream_move_event_to_alsa.card_name=HDA Intel PCH
 true_exec=echo "moving mplayer to HDA Intel PCH"
 
+; Example: if a process with binary mplayer starts audio output, move this
+;          stream to sink "HDA NVidia" but only if output DP-0 is connected
+;          and if the laptop's lid is closed
+[rule move_new_mplayer_to_nvidia]
+on_type=NewPlaybackStream
+on_application.process.binary=mplayer
+if_exec=grep -rhl closed /proc/acpi/button/lid/LID/state > /dev/null
+true_stream_move_event_to_alsa.card_name=HDA NVidia
+true_exec=echo "moving mplayer to HDA NVidia"
 
 ; Example: echo a message if a music player from class "musicplayers" starts
 [rule match_class_of_streams]
@@ -111,3 +120,6 @@ stream_application.name=ALSA plug-in [mplayer]
 stream_application.name=ALSA plug-in [vlc]
 stream_application.id=org.VideoLAN.VLC
 
+[rule PA_port_event]
+on_type=ActivePortUpdated
+true_exec=echo "switch to \"%event_description%\" on device \"%event_device.name%\""

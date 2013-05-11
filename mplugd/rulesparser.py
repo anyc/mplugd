@@ -64,9 +64,9 @@ class MyRulesParser(object):
 			
 			# either create new value list or add to existing list
 			if not part[0] in section:
-				section[part[0]] = [MyRulesValue(part[1], part[2][:-1])]
+				section[part[0]] = [MyRulesValue(part[1], part[2].strip())]
 			else:
-				section[part[0]].append(MyRulesValue(part[1], part[2][:-1]))
+				section[part[0]].append(MyRulesValue(part[1], part[2].strip()))
 			
 			idx += 1
 		
