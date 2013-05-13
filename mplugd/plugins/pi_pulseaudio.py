@@ -178,6 +178,15 @@ class PAMP_Event(MP_Event):
 	
 	# process the "raw" event from DBUS and set self.item to the item in question
 	def get_event_item(self):
+		if self.event.get_member() == "NewSink" or self.event.get_member() == "SinkRemoved":
+			newsinks = get_state_sinks()
+			if self.path in newsinks.keys():
+				self.item = newsinks[self.path]
+			elif self.path in mplugd.laststate["sink"].keys():
+				self.item = mplugd.laststate["sink"][self.path]
+			else:
+				print "Did not find information on sink", self.path, newsinks
+		
 		if self.event.get_member() == "ActivePortUpdated":
 			if not str(self.event.get_path()) in mplugd.laststate["sink"]:
 				# TODO source events, we only handle sinks for now
@@ -234,8 +243,12 @@ class PA_event_loop(threading.Thread):
 		self.pa_wrapper.bus.add_signal_receiver(cb_handler, message_keyword="msg")
 		
 		core1 = self.pa_wrapper.bus.get_object('org.PulseAudio.Core1', '/org/pulseaudio/core1')
+		
 		core1.ListenForSignal('org.PulseAudio.Core1.NewPlaybackStream', dbus.Array(signature="o"))
 		core1.ListenForSignal('org.PulseAudio.Core1.PlaybackStreamRemoved', dbus.Array(signature="o"))
+		
+		core1.ListenForSignal('org.PulseAudio.Core1.NewSink', dbus.Array(signature="o"))
+		core1.ListenForSignal('org.PulseAudio.Core1.SinkRemoved', dbus.Array(signature="o"))
 		
 		core1.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature="o"))
 		
@@ -276,7 +289,7 @@ class PA_object(MP_object):
 # internal representation of a sink
 class Sink(PA_object):
 	keys = ["Name", "Driver", "Index", "Volume",
-		"Mute", "State", "Channels", "ActivePort"]
+		"Mute", "State", "Channels"]
 	
 	def __init__(self, dbus_obj, pawrapper):
 		PA_object.__init__(self, dbus_obj, pawrapper, pawrapper.get_sink_attr);

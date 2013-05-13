@@ -74,4 +74,4 @@ block device `sdc` is present, start recording with mplayer
 		on_name*=dvb[0-9].frontend[0-9]
 		if_udev_device_block_name=sdc
 		true_exec=echo "%event_type% device: %event_name%, starting record"
-		true_exec_thread=mplayer dvb:// -dumpstream -dumpfile /mnt/sda/dump.ts
+		true_exec_thread=mplayer dvb:// -dumpstream -dumpfile /mnt/sdc/dump.ts
