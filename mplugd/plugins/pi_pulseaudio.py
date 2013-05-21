@@ -450,7 +450,9 @@ def dump_state(state):
 	if "sink" in state:
 		for k,v in state["sink"].items():
 			print ""
-			print getattr(v, "alsa.card_name"), "(ID: %s)" % k
+			if hasattr(v, "alsa.card_name"):
+				print getattr(v, "alsa.card_name"), 
+			print "(ID: %s)" % k
 			print str(v)
 	
 	if "stream" in state:
