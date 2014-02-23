@@ -79,7 +79,14 @@ class PADbusWrapper(object):
 		if mplugd.verbose:
 			print "PA connecting to", dbus_addr
 		
-		self.bus = dbus.connection.Connection(dbus_addr)
+		try:
+			self.bus = dbus.connection.Connection(dbus_addr)
+		except dbus.exceptions.DBusException:
+			print "Error while connecting to PA daemon over DBUS, maybe you"
+			print "have to load the module with:"
+			print "    pacmd load-module module-dbus-protocol"
+			self.bus = None
+			return
 		
 		# get PA's core object
 		self.core = self.bus.get_object(object_path='/org/pulseaudio/core1')
@@ -209,9 +216,17 @@ class PAMP_Event(MP_Event):
 				self.item = mplugd.laststate["stream"][self.path]
 			else:
 				print "Did not find information on stream", self.path, newstreams
+		
+		if self.event.get_member() == "MuteUpdated":
+			if self.event.get_path() in mplugd.laststate["sink"]:
+				#mplugd.laststate["sink"][str(self.event.get_path())]["Mute"] = self.path
+				self.item = mplugd.laststate["sink"][str(self.event.get_path())]
+			else:
+				self.ignore = True
+				return
 	
 	def __str__(self):
-		return "<Event %s etype=%s path=%s>" %(self.__class__.__name__, self.etype, self.path)
+		return "<Event %s etype=%s path=%s value=%s>" %(self.__class__.__name__, self.etype, self.event.get_path(), self.path)
 
 # main event loop thread for this plugin
 class PA_event_loop(threading.Thread):
@@ -226,7 +241,7 @@ class PA_event_loop(threading.Thread):
 	def handler(self, path, sender=None, msg=None):
 		self.queue.push(PAMP_Event(self, msg, sender, path))
 	
-	def run(self):
+	def init(self):
 		DBusGMainLoop(set_as_default=True)
 		
 		self.pa_wrapper = PADbusWrapper(True)
@@ -234,8 +249,11 @@ class PA_event_loop(threading.Thread):
 		
 		if not self.pa_wrapper.bus:
 			self.initflag.set()
-			return
+			return False
 		
+		return True
+	
+	def run(self):
 		# local callback handler
 		def cb_handler(path=None, sender=None, msg=None):
 			self.handler(path, sender, msg)
@@ -251,6 +269,7 @@ class PA_event_loop(threading.Thread):
 		core1.ListenForSignal('org.PulseAudio.Core1.SinkRemoved', dbus.Array(signature="o"))
 		
 		core1.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature="o"))
+		core1.ListenForSignal('org.PulseAudio.Core1.Device.MuteUpdated', dbus.Array(signature="o"))
 		
 		self.loop = gMainLoop()
 		gthreads_init()
@@ -467,6 +486,9 @@ def initialize(main,queue):
 	
 	mplugd = main
 	eventloop = PA_event_loop(queue)
+	
+	if not eventloop.init():
+		return None
 	
 	return eventloop
 

@@ -108,7 +108,7 @@ class EventQueue(object):
 			self.cond.release()
 			return
 		
-		val = self.items.pop()
+		val = self.items.pop(0)
 		self.cond.release()
 		
 		return val

@@ -2,13 +2,13 @@
 mplugd
 ======
 
-mplugd is a daemon that listens on events (e.g. xrandr or pulseaudio) and
+mplugd is a daemon that listens on events (e.g. xrandr, pulseaudio, ...) and
 executes user-defined actions on certain events. In contrast to other
 approaches, it listens to events by registering callback handlers *instead* of
-polling and parsing tool output. Event processing is done through a threaded
-producer/consumer architecture that can be extended by plugins to insert new
-event types. Actions can be defined using INI-like rule files or simple
-scripts.
+polling and parsing tool output, if possible. Event processing is done through
+a threaded producer/consumer architecture that can be extended by plugins to
+insert new event types. Actions can be defined using INI-like rule files or
+simple scripts.
 
 A common use-case is automatic configuration of plugged-in devices like HDMI
 or DisplayPort displays including switch of audio output using pulseaudio. It
@@ -19,6 +19,7 @@ Requirements:
 	* For pulseaudio: dbus-python
 	* For X events: python-xlib (SVN revision > r160 or version > 0.15)
 	* For udev: pyudev
+	* For MIDI: pyportmidi
 
 Examples of supported events
 ----------------------------
@@ -27,6 +28,7 @@ Examples of supported events
 * Applications starting/ending audio output through PulseAudio
 * PulseAudio port changes (e.g., plugged-in headphones)
 * Udev events (e.g., new/removed devices or changed properties)
+* MIDI events
 
 Usage
 -----
@@ -42,15 +44,16 @@ Usage
 Rules example
 -------------
 
-* If DP-[0-9] gets connected to a display, change default sink to the sink
-known as "HDA NVidia" card to ALSA and set the display configuration to
-automatic.
+* If DP-[0-9] gets connected to a display with ID "SAMC900", change default
+sink to the sink known as "HDA NVidia" card to ALSA and set the display
+configuration to automatic.
 
 		[rule on_dpX_connect]
 		on_type=OutputChangeNotify
 		on_name*=DP-[0-9]
 		on_connected=1
 		on_crtc=0
+		on_id_string=SAMC900
 		true_stream_set_defaultsink_to_alsa.card_name=HDA NVidia
 		true_exec=xrandr --output %event_name% --auto
 

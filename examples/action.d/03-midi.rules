@@ -1,0 +1,31 @@
+; enable the play LED on a BCD2000 device as long as the corresponding button
+; is pressed
+
+[rule bcd2000_play_led_on]
+on_type=MidiNoteOn
+on_values=1b 7f 0
+true_portmidi_send_bcd2000=b0 9 7f
+
+[rule bcd2000_play_led_off]
+on_type=MidiNoteOn
+on_values=1b 0 0
+true_portmidi_send_bcd2000=b0 9 0
+
+
+; enable the cue LED when a audio sink is muted else disable it
+; if cue button is pressed, send the XF86AudioMute key code to Xorg
+
+[rule bcd2000_cue_led_on]
+on_type=MuteUpdated
+on_Mute=True
+true_portmidi_send_bcd2000=b0 a 7f
+
+[rule bcd2000_cue_led_off]
+on_type=MuteUpdated
+on_Mute=False
+true_portmidi_send_bcd2000=b0 a 0
+
+[rule bcd2000_cue_mute_audio]
+on_type=MidiNoteOn
+on_values=1a 7f 0
+true_exec=xdotool key XF86AudioMute
