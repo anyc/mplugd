@@ -12,7 +12,7 @@ simple scripts.
 
 A common use-case is automatic configuration of plugged-in devices like HDMI
 or DisplayPort displays including switch of audio output using pulseaudio. It
-also enables automatic actions on udev events without root access.
+also enables automatic actions on udev events without root privileges.
 
 Requirements:
 
