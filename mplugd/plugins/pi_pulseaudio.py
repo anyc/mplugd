@@ -361,8 +361,11 @@ class Stream(PA_object):
 				return self._props["application.name"][:-1]
 			elif "device.description" in self._props:
 				return self._props["device.description"][:-1]
-		return PA_object.__getattr__(self, attr)
-
+		try:
+			return PA_object.__getattr__(self, attr)
+		except AttributeError:
+			#print "Attribute ",attr," does not exist for this stream"
+			return "";
 # internal representation of a sink
 class Port(PA_object):
 	keys = ["Name", "Description", "Priority"]
