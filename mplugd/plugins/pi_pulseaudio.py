@@ -362,6 +362,8 @@ class Stream(PA_object):
 		if attr == "name" or attr == "Name":
 			if "application.name" in self._props:
 				return self._props["application.name"][:-1]
+			elif "media.name" in self._props:
+				return self._props["media.name"][:-1]
 			elif "device.description" in self._props:
 				return self._props["device.description"][:-1]
 		return PA_object.__getattr__(self, attr)
