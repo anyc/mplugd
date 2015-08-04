@@ -361,8 +361,7 @@ class Stream(PA_object):
 				return self._props["application.name"][:-1]
 			else if "device.description" in self._props
 				return self._props["device.description"][:-1]
-			else
-				return "Unknown"
+		return PA_object.__getattr__(self, attr)
 
 # internal representation of a sink
 class Port(PA_object):
