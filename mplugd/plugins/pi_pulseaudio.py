@@ -59,10 +59,9 @@ class PADbusWrapper(object):
 		dbus_addr = False
 		while not dbus_addr:
 			try:
-				_sbus = dbus.SessionBus()
-				
 				dbus_addr = os.environ.get('PULSE_DBUS_SERVER')
 				if not dbus_addr:
+					_sbus = dbus.SessionBus()
 					dbus_addr = _sbus.get_object('org.PulseAudio1', '/org/pulseaudio/server_lookup1').Get('org.PulseAudio.ServerLookup1', 'Address', dbus_interface='org.freedesktop.DBus.Properties')
 			
 			except dbus.exceptions.DBusException as exception:
