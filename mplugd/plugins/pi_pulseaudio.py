@@ -366,7 +366,11 @@ class Stream(PA_object):
 				return self._props["media.name"][:-1]
 			elif "device.description" in self._props:
 				return self._props["device.description"][:-1]
-		return PA_object.__getattr__(self, attr)
+		try:
+			return PA_object.__getattr__(self, attr)
+		except AttributeError as exception:
+			print exception
+			return None
 
 # internal representation of a sink
 class Port(PA_object):
@@ -380,7 +384,11 @@ class Port(PA_object):
 		if attr == "device":
 			return self.device
 		
-		return PA_object.__getattr__(self, attr)
+		try:
+			return PA_object.__getattr__(self, attr)
+		except AttributeError as exception:
+			print exception
+			return None
 
 # query PA for a list of sinks
 def get_state_sinks():
