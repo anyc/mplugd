@@ -130,8 +130,11 @@ class PADbusWrapper(object):
 		return pstreams
 	
 	def get_stream_attr(self, stream, attr):
-		return dbus2str(stream.Get('org.PulseAudio.Core1.Stream', attr))
-	
+		try:
+			return dbus2str(stream.Get('org.PulseAudio.Core1.Stream', attr))
+		except dbus.exceptions.DBusException:
+			raise AttributeError
+
 	def move_stream2sink(self, stream, sink):
 		move = stream.get_dbus_method('Move', 'org.PulseAudio.Core1.Stream')
 		

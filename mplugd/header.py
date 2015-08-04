@@ -142,7 +142,7 @@ class MP_object(object):
 		# query PA over dbus if it knows the attribute
 		try:
 			val = self.get_attr(self._obj, attr)
-		except dbus.exceptions.DBusException:
+		except AttributeError:
 			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
 		if val != None:
 			return val
