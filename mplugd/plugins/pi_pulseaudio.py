@@ -357,8 +357,11 @@ class Stream(PA_object):
 	
 	def __getattr__(self, attr):
 		if attr == "name" or attr == "Name":
-			return self._props["application.name"][:-1]
-		
+			try:
+				return self._props["application.name"][:-1]
+			except KeyError:
+				return PA_object.__getattr__(self, attr)
+				
 		return PA_object.__getattr__(self, attr)
 
 # internal representation of a sink
