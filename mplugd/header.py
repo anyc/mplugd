@@ -143,7 +143,7 @@ class MP_object(object):
 		try:
 			val = self.get_attr(self._obj, attr)
 		except dbus.exceptions.DBusException:
-			raise AttributeError("%r object has no attribute %r" % (type(s    elf).__name__, attr))
+			raise AttributeError("%r object has no attribute %r" % (type(self).__name__, attr))
 		if val != None:
 			return val
 		
