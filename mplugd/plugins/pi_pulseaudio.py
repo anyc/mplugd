@@ -357,9 +357,9 @@ class Stream(PA_object):
 	
 	def __getattr__(self, attr):
 		if attr == "name" or attr == "Name":
-			if "application.name" in self._props
+			if "application.name" in self._props:
 				return self._props["application.name"][:-1]
-			else if "device.description" in self._props
+			else if "device.description" in self._props:
 				return self._props["device.description"][:-1]
 		return PA_object.__getattr__(self, attr)
 
