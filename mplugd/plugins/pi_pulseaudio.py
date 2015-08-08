@@ -59,10 +59,9 @@ class PADbusWrapper(object):
 		dbus_addr = False
 		while not dbus_addr:
 			try:
-				_sbus = dbus.SessionBus()
-				
 				dbus_addr = os.environ.get('PULSE_DBUS_SERVER')
 				if not dbus_addr:
+					_sbus = dbus.SessionBus()
 					dbus_addr = _sbus.get_object('org.PulseAudio1', '/org/pulseaudio/server_lookup1').Get('org.PulseAudio.ServerLookup1', 'Address', dbus_interface='org.freedesktop.DBus.Properties')
 			
 			except dbus.exceptions.DBusException as exception:
@@ -131,8 +130,11 @@ class PADbusWrapper(object):
 		return pstreams
 	
 	def get_stream_attr(self, stream, attr):
-		return dbus2str(stream.Get('org.PulseAudio.Core1.Stream', attr))
-	
+		try:
+			return dbus2str(stream.Get('org.PulseAudio.Core1.Stream', attr))
+		except dbus.exceptions.DBusException:
+			raise AttributeError
+
 	def move_stream2sink(self, stream, sink):
 		move = stream.get_dbus_method('Move', 'org.PulseAudio.Core1.Stream')
 		
@@ -358,9 +360,17 @@ class Stream(PA_object):
 	
 	def __getattr__(self, attr):
 		if attr == "name" or attr == "Name":
-			return self._props["application.name"][:-1]
-		
-		return PA_object.__getattr__(self, attr)
+			if "application.name" in self._props:
+				return self._props["application.name"][:-1]
+			elif "media.name" in self._props:
+				return self._props["media.name"][:-1]
+			elif "device.description" in self._props:
+				return self._props["device.description"][:-1]
+		try:
+			return PA_object.__getattr__(self, attr)
+		except AttributeError as exception:
+			print exception
+			return None
 
 # internal representation of a sink
 class Port(PA_object):
@@ -374,7 +384,11 @@ class Port(PA_object):
 		if attr == "device":
 			return self.device
 		
-		return PA_object.__getattr__(self, attr)
+		try:
+			return PA_object.__getattr__(self, attr)
+		except AttributeError as exception:
+			print exception
+			return None
 
 # query PA for a list of sinks
 def get_state_sinks():
