@@ -9,7 +9,7 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
-import threading, re, os, __init__
+import threading, re, os
 from pprint import pprint, pformat
 from six.moves import range
 
