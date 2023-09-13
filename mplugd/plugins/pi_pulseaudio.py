@@ -13,10 +13,16 @@ import os, sys, dbus, threading
 from pprint import pprint
 
 from dbus.mainloop.glib import DBusGMainLoop
-from gobject import MainLoop as gMainLoop, threads_init as gthreads_init
 from dbus.glib import init_threads as ginit_threads
 from pprint import pprint, pformat
 import six
+
+try:
+	from gobject import MainLoop as gMainLoop, threads_init as gthreads_init
+except ImportError:
+	from gi.repository import GObject
+	gMainLoop = GObject.MainLoop
+	gthreads_init = GObject.threads_init
 
 if __name__ == "__main__":
 	sys.path.append("../")
