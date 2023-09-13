@@ -9,6 +9,8 @@
 # as well as multiple values per key.
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import re
 
 # extend str to store the separator
@@ -46,7 +48,7 @@ class MyRulesParser(object):
 			if stripped[0] == "[":
 				secname = stripped[1:stripped.find("]")]
 				if secname in self._dict:
-					print "Warning: double section", secname
+					print("Warning: double section", secname)
 				else:
 					self._dict[secname] = {}
 				section = self._dict[secname]
@@ -59,7 +61,7 @@ class MyRulesParser(object):
 				if part[1] == sep:
 					break
 			if part[1] != sep:
-				print "no separator found in line", idx, "\"%s\"" % (lines[idx])
+				print("no separator found in line", idx, "\"%s\"" % (lines[idx]))
 				return
 			
 			# either create new value list or add to existing list
@@ -112,4 +114,4 @@ if __name__ == '__main__':
 	import pprint
 	pprint.pprint(parser._dict)
 	
-	print parser.sections()
+	print(parser.sections())

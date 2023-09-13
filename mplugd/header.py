@@ -7,8 +7,11 @@
 # Some common code for mplugd
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import threading, re, os, __init__
 from pprint import pprint, pformat
+from six.moves import range
 
 mplugd = None
 default_config = {
@@ -32,7 +35,7 @@ class MPlugD(object):
 		configfile = os.path.expanduser(configfile)
 		if os.path.exists(configfile):
 			if self.verbose:
-				print "Loading config file %s" % configfile
+				print("Loading config file %s" % configfile)
 			
 			f = open(configfile)
 			lines = f.readlines();

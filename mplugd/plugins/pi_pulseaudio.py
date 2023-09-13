@@ -7,6 +7,8 @@
 # Plugin that listens for PulseAudio events
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os, sys, dbus, threading
 from pprint import pprint
 
@@ -14,6 +16,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gobject import MainLoop as gMainLoop, threads_init as gthreads_init
 from dbus.glib import init_threads as ginit_threads
 from pprint import pprint, pformat
+import six
 
 if __name__ == "__main__":
 	sys.path.append("../")
@@ -67,7 +70,7 @@ class PADbusWrapper(object):
 			except dbus.exceptions.DBusException as exception:
 				#if exception.get_dbus_name() != 'org.freedesktop.DBus.Error.ServiceUnknown':
 					#raise
-				print "Could not connect to PA: ", exception
+				print("Could not connect to PA: ", exception)
 				return
 				#import subprocess
 				#subprocess.Popen(['pulseaudio', '--start', '--log-target=syslog'], stdout=open('/dev/null', 'w'), stderr=subprocess.STDOUT).wait()
@@ -76,14 +79,14 @@ class PADbusWrapper(object):
 				#dbus_addr = False
 		
 		if mplugd.verbose:
-			print "PA connecting to", dbus_addr
+			print("PA connecting to", dbus_addr)
 		
 		try:
 			self.bus = dbus.connection.Connection(dbus_addr)
 		except dbus.exceptions.DBusException:
-			print "Error while connecting to PA daemon over DBUS, maybe you"
-			print "have to load the module with:"
-			print "    pacmd load-module module-dbus-protocol"
+			print("Error while connecting to PA daemon over DBUS, maybe you")
+			print("have to load the module with:")
+			print("    pacmd load-module module-dbus-protocol")
 			self.bus = None
 			return
 		
@@ -188,7 +191,7 @@ class PADbusWrapper(object):
 			#'PropertyList'
 			return self.get_stream_attr(spl[2:])
 		
-		print "error", attr
+		print("error", attr)
 		raise AttributeError
 
 # Pulseaudio event class
@@ -207,12 +210,12 @@ class PAMP_Event(MP_Event):
 	def get_event_item(self):
 		if self.event.get_member() == "NewSink" or self.event.get_member() == "SinkRemoved":
 			newsinks = get_state_sinks()
-			if self.path in newsinks.keys():
+			if self.path in list(newsinks.keys()):
 				self.item = newsinks[self.path]
-			elif self.path in mplugd.laststate["sink"].keys():
+			elif self.path in list(mplugd.laststate["sink"].keys()):
 				self.item = mplugd.laststate["sink"][self.path]
 			else:
-				print "Did not find information on sink", self.path, newsinks
+				print("Did not find information on sink", self.path, newsinks)
 		
 		if self.event.get_member() == "ActivePortUpdated":
 			if not str(self.event.get_path()) in mplugd.laststate["sink"]:
@@ -223,19 +226,19 @@ class PAMP_Event(MP_Event):
 			if self.path in mplugd.laststate["sink"][str(self.event.get_path())].ports:
 				self.item = mplugd.laststate["sink"][str(self.event.get_path())].ports[self.path]
 			else:
-				print "unknown port:", self.path
+				print("unknown port:", self.path)
 		
 		if self.event.get_member() == "NewPlaybackStream" or self.event.get_member() == "PlaybackStreamRemoved":
 			# get additional info for the event's stream
 			# required for disconnect events because we cannot query the
 			# server for info afterwards
 			newstreams = get_state_streams()
-			if self.path in newstreams.keys():
+			if self.path in list(newstreams.keys()):
 				self.item = newstreams[self.path]
-			elif self.path in mplugd.laststate["stream"].keys():
+			elif self.path in list(mplugd.laststate["stream"].keys()):
 				self.item = mplugd.laststate["stream"][self.path]
 			else:
-				print "Did not find information on stream", self.path, newstreams
+				print("Did not find information on stream", self.path, newstreams)
 		
 		if self.event.get_member() == "MuteUpdated":
 			if self.event.get_path() in mplugd.laststate["sink"]:
@@ -369,7 +372,7 @@ class Stream(PA_object):
 		try:
 			return PA_object.__getattr__(self, attr)
 		except AttributeError as exception:
-			print exception
+			print(exception)
 			return None
 
 # internal representation of a sink
@@ -387,7 +390,7 @@ class Port(PA_object):
 		try:
 			return PA_object.__getattr__(self, attr)
 		except AttributeError as exception:
-			print exception
+			print(exception)
 			return None
 
 # query PA for a list of sinks
@@ -434,13 +437,13 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		sc_section = "stream_class %s" % val[0]
 		if not sparser.has_section(sc_section):
 			if mplugd.verbose:
-				print "Section [stream_class %s] not found" % val[0]
+				print("Section [stream_class %s] not found" % val[0])
 			return False
 		
 		for k,v in sparser.items(sc_section):
 			if sparser.match(v, getattr(event.item, k[7:])):
 				if mplugd.verbose:
-					print "match"
+					print("match")
 				return True
 	
 	elif pl[2] == "set" and pl[3] == "defaultsink":
@@ -449,7 +452,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		for k,v in state["sink"].items():
 			if sparser.match(val, getattr(v, "_".join(pl[5:]))):
 				if mplugd.verbose:
-					print "set sink to", k
+					print("set sink to", k)
 				eventloop.pa_wrapper.set_fallback_sink(v._obj);
 	
 	elif pl[3] == "class":
@@ -458,7 +461,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		sc_section = "stream_class %s" % pl[4]
 		if not sparser.has_section(sc_section):
 			if mplugd.verbose:
-				print "Section [stream_class %s] not found" % pl[4]
+				print("Section [stream_class %s] not found" % pl[4])
 			return
 		
 		for k,v in state["sink"].items():
@@ -467,11 +470,11 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 				
 				for option_key,option_val in sparser.items(sc_section):
 					# set restore entry for new streams
-					for name, entry in rentries.iteritems():
+					for name, entry in six.iteritems(rentries):
 						match = sparser.getmatch(option_val, name, "sink-input-by-%s:" % option_key[7:].replace(".", "-"))
 						if match != None:
 							if mplugd.verbose:
-								print "set restore entry of", "\"%s\"" % name, "to", v.name
+								print("set restore entry of", "\"%s\"" % name, "to", v.name)
 							eventloop.pa_wrapper.set_restore_entry(entry, v.name)
 					
 					# switch running streams
@@ -480,7 +483,7 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 							continue
 						if sparser.match(option_val, getattr(stream, option_key[7:])):
 							if mplugd.verbose:
-								print "move", "\"%s\"" % option_val, "to", k
+								print("move", "\"%s\"" % option_val, "to", k)
 							eventloop.pa_wrapper.move_stream2sink(stream._obj, v._obj)
 	
 	elif pl[3] == "event":
@@ -489,28 +492,28 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 		for k,v in state["sink"].items():
 			if sparser.match(val, getattr(v, "_".join(pl[5:]))):
 				if mplugd.verbose:
-					print "move \"%s\" to \"%s\"" % ( event.item.Name, k)
+					print("move \"%s\" to \"%s\"" % ( event.item.Name, k))
 				eventloop.pa_wrapper.move_stream2sink(event.item._obj, v._obj)
 				break
 	else:
-		print __name__, "unknown command", "_".join(pl), val
+		print(__name__, "unknown command", "_".join(pl), val)
 
 def dump_state(state):
-	print "PulseAudio:"
+	print("PulseAudio:")
 	
 	if "sink" in state:
 		for k,v in state["sink"].items():
-			print ""
+			print("")
 			if hasattr(v, "alsa.card_name"):
-				print getattr(v, "alsa.card_name"), 
-			print "(ID: %s)" % k
-			print str(v)
+				print(getattr(v, "alsa.card_name"), end=' ') 
+			print("(ID: %s)" % k)
+			print(str(v))
 	
 	if "stream" in state:
 		for k,v in state["stream"].items():
-			print ""
-			print v.name, "(ID: %s)" % k
-			print str(v)
+			print("")
+			print(v.name, "(ID: %s)" % k)
+			print(str(v))
 
 def initialize(main,queue):
 	global mplugd
@@ -526,7 +529,7 @@ def initialize(main,queue):
 
 if __name__ == "__main__":
 	def printhandler(path, sender=None, msg=None):
-		print "Event: ", path, sender, msg
+		print("Event: ", path, sender, msg)
 	
 	eventloop = PA_event_loop(None)
 	eventloop.handler = printhandler
@@ -559,7 +562,7 @@ if __name__ == "__main__":
 		name = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Name'),
 		dev = e.Get('org.PulseAudio.Ext.StreamRestore1.RestoreEntry', 'Device')
 		
-		print str(name[0]), "--", dev
+		print(str(name[0]), "--", dev)
 	
 	shutdown()
 	

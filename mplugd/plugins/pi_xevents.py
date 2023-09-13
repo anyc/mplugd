@@ -7,10 +7,14 @@
 # Plugin that listens for X events
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import Xlib, Xlib.display, Xlib.ext.randr as randr
 import edid, threading
 from pprint import pprint, pformat
 import header
+from six.moves import map
+from six.moves import range
 
 mplugd = None
 keywords = ["output"]
@@ -61,7 +65,7 @@ def get_edid(display, output_nr):
 		try:
 			rawedid = display.xrandr_get_output_property(output_nr, PROPERTY_EDID, INT_TYPE, 0, 400)
 		except:
-			print "error loading EDID data of output", output_nr
+			print("error loading EDID data of output", output_nr)
 			return None
 		edidstream = rawedid._data['value']
 		e2 = ''.join(map(chr, edidstream))
@@ -86,14 +90,14 @@ class XMP_Event(header.MP_Event):
 			# required for disconnect events because we cannot query the
 			# server for info afterwards
 			newoutputs = get_state_outputs()
-			if self.event.output in newoutputs.keys():
+			if self.event.output in list(newoutputs.keys()):
 				self.item = newoutputs[self.event.output]
-			elif self.event.output in mplugd.laststate["output"].keys():
+			elif self.event.output in list(mplugd.laststate["output"].keys()):
 				self.item = mplugd.laststate["output"][self.event.output]
 			else:
-				print "Did not find information on output", self.event.output
+				print("Did not find information on output", self.event.output)
 			
-			if (not self.item._edid or not self.item._edid.valid) and self.event.output in mplugd.laststate["output"].keys():
+			if (not self.item._edid or not self.item._edid.valid) and self.event.output in list(mplugd.laststate["output"].keys()):
 				self.item._edid = mplugd.laststate["output"][self.event.output]._edid
 			
 			return self.item
@@ -118,13 +122,13 @@ class X_event_loop(threading.Thread):
 		root = self.root
 
 		if not display.has_extension("RANDR"):
-			print "RANDR extension not found"
+			print("RANDR extension not found")
 			sys.exit(1)
 
 		display.query_extension('RANDR')
 		if mplugd.verbose:
 			r = display.xrandr_query_version()
-			print "RANDR extension version %d.%d" % (r.major_version, r.minor_version)
+			print("RANDR extension version %d.%d" % (r.major_version, r.minor_version))
 
 		# set which types of events we want to receive
 		root.xrandr_select_input(
@@ -177,11 +181,11 @@ def get_state(state):
 
 def dump_state(state):
 	if "output" in state:
-		print "Xorg"
-		print ""
+		print("Xorg")
+		print("")
 		for k,v in state["output"].items():
-			print v.name, "(ID: %s)" % k
-			print str(v)
+			print(v.name, "(ID: %s)" % k)
+			print(str(v))
 
 def shutdown():
 	eventloop.stop = True
@@ -196,7 +200,7 @@ def initialize(main,queue):
 	mplugd = main
 	
 	if int(Xlib.__version__[0]) == 0 and int(Xlib.__version__[1]) <= 15 and not hasattr(Xlib.display.Display, "extension_add_subevent"):
-		print "Require at least python-xlib SVN revision > r160 or version > 0.15. Your version:", Xlib.__version_string__
+		print("Require at least python-xlib SVN revision > r160 or version > 0.15. Your version:", Xlib.__version_string__)
 		return None
 	
 	eventloop = X_event_loop(queue)

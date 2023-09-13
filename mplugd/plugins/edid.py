@@ -7,7 +7,9 @@
 
 ### FIXME recheck endianness for these structs
 
+from __future__ import absolute_import
 from struct import pack, unpack
+from six.moves import range
 
 ### EDID Header Magic
 EDID_HEADER = "\0\xFF\xFF\xFF\xFF\xFF\xFF\0"

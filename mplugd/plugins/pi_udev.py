@@ -7,6 +7,8 @@
 # Plugin that listens on udev events
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import pyudev, sys, threading
 from pprint import pprint, pformat
 
@@ -32,15 +34,15 @@ class Udev_object(MP_object):
 		if attr == "name":
 			return self._obj.sys_name
 		
-		if attr in self._obj.keys():
+		if attr in list(self._obj.keys()):
 			return self._obj[attr]
-		if attr.upper() in self._obj.keys():
+		if attr.upper() in list(self._obj.keys()):
 			return self._obj[attr.upper()]
 		
 		if hasattr(self._obj, attr):
 			return getattr(self._obj, attr)
 		
-		if attr in self._obj.attributes.keys():
+		if attr in list(self._obj.attributes.keys()):
 			return self._obj.attributes[attr]
 		
 		return MP_object.__getattr__(self, attr)
@@ -105,7 +107,7 @@ def handle_rule_condition(sparser, pl, values, state, event):
 			if dev.name in values:
 				return (False, True)
 		if mplugd.verbose:
-			print "no such device"
+			print("no such device")
 		return (False, False)
 	
 	# (ignore, valid)
@@ -132,19 +134,19 @@ def initialize(main,queue):
 
 def dump_state(state):
 	if "output" in state:
-		print "Udev"
-		print ""
-		print "Please execute \"pi_udev.py list\" for a complete list of devices."
+		print("Udev")
+		print("")
+		print("Please execute \"pi_udev.py list\" for a complete list of devices.")
 
 if __name__ == "__main__":
 	if len(sys.argv) == 1:
-		print "Usage: ", sys.argv[0], "<listen|list [path]>"
+		print("Usage: ", sys.argv[0], "<listen|list [path]>")
 		sys.exit(0)
 	
 	def event_handler(action, device):
 		#print "Event: ", action, device
 		e = Udev_Event(eventloop, action, device)
-		print "Udev%s%s" % (action[0].upper(),action[1:]), e.item.subsystem, e.item.name, e.item.verbose_str()
+		print("Udev%s%s" % (action[0].upper(),action[1:]), e.item.subsystem, e.item.name, e.item.verbose_str())
 	
 	eventloop = Udev_event_loop(None)
 	eventloop.handler = event_handler
@@ -158,7 +160,7 @@ if __name__ == "__main__":
 	
 	if len(sys.argv) == 2 and sys.argv[1] == "list":
 		for device in eventloop.context.list_devices():
-			print device
+			print(device)
 		shutdown()
 		sys.exit(0)
 	
@@ -171,24 +173,24 @@ if __name__ == "__main__":
 		except pyudev.device.DeviceNotFoundAtPathError:
 			pass
 		except:
-			print "Unexpected error:", sys.exc_info()[0]
+			print("Unexpected error:", sys.exc_info()[0])
 		
 		try:
 			dev = pyudev.Device.from_device_file(eventloop.context, sys.argv[2])
 		except ValueError:
 			pass
 		except:
-			print "Unexpected error:", sys.exc_info()[0]
+			print("Unexpected error:", sys.exc_info()[0])
 		
 		if dev == None:
-			print sys.argv[2], "not found"
+			print(sys.argv[2], "not found")
 			shutdown()
 			sys.exit(0)
 		
-		print Udev_object(dev).verbose_str()
+		print(Udev_object(dev).verbose_str())
 	
 	if sys.argv[1] == "listen":
-		print "Waiting for udev events..."
+		print("Waiting for udev events...")
 		import time
 		while True:
 			try:

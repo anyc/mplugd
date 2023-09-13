@@ -7,10 +7,12 @@
 # This is the main file for mplugd
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os, argparse, sys, subprocess
 
-from header import *
-from rulesparser import *
+from .header import *
+from .rulesparser import *
 
 
 # thread that pops events from queue and processes them
@@ -27,11 +29,11 @@ class Event_Consumer(threading.Thread):
 			if val:
 				if val.ignore:
 					if mplugd.verbose:
-						print "Ignoring event: ", val
+						print("Ignoring event: ", val)
 					continue
 				
 				if mplugd.verbose:
-					print "Handling event: ", val
+					print("Handling event: ", val)
 				self.handle_event(val)
 	
 	def handle_event(self, e):
@@ -96,12 +98,12 @@ class ThreadedCommand(threading.Thread):
 		subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 		
 		if mplugd.verbose:
-			print "thead executing \"%s\" returned." % self.cmd
+			print("thead executing \"%s\" returned." % self.cmd)
 
 # process rules file from action.d/
 def execute_rules(filename, event):
 	if mplugd.verbose:
-		print "Executing rules", filename
+		print("Executing rules", filename)
 	
 	sparser = MyRulesParser()
 	sparser.read(filename)
@@ -112,7 +114,7 @@ def execute_rules(filename, event):
 			continue
 		
 		if mplugd.verbose:
-			print "Processing section", s
+			print("Processing section", s)
 		
 		# start itemlist with on_ items
 		itemlist = []
@@ -132,7 +134,7 @@ def execute_rules(filename, event):
 				continue
 			
 			if mplugd.verbose:
-				print "Item: %s %s %s ..." %(k, values[0].sep, values),
+				print("Item: %s %s %s ..." %(k, values[0].sep, values), end=' ')
 			
 			if k[:len("if_present_")] == "if_present_":
 				# if_present_output_name=DP-0
@@ -147,10 +149,10 @@ def execute_rules(filename, event):
 						break;
 				if found:
 					if mplugd.verbose:
-						print "found"
+						print("found")
 				else:
 					if mplugd.verbose:
-						print "not found"
+						print("not found")
 					execute = False
 					break
 			
@@ -159,12 +161,12 @@ def execute_rules(filename, event):
 					retval = subprocess.call(cmd, shell=True)
 					if retval:
 						if mplugd.verbose:
-							print cmd, "returned:", retval, "expected 0"
+							print(cmd, "returned:", retval, "expected 0")
 						execute = False
 						break
 					else:
 						if mplugd.verbose:
-							print "match"
+							print("match")
 			
 			elif k[:len("if_")] == "if_":
 				# if_output_DP-0_connected=1
@@ -183,7 +185,7 @@ def execute_rules(filename, event):
 					if not ignore:
 						if valid:
 							if mplugd.verbose:
-								print ki[0], "match"
+								print(ki[0], "match")
 							continue
 						else:
 							execute = False
@@ -191,7 +193,7 @@ def execute_rules(filename, event):
 				
 				if not ki[0] in mplugd.laststate:
 					if mplugd.verbose:
-						print ki[0], "not found"
+						print(ki[0], "not found")
 					execute = False
 					break
 				
@@ -206,14 +208,14 @@ def execute_rules(filename, event):
 					if not sparser.match(values, str(getattr(mplugd.laststate[ki[0]][outputid], "_".join(ki[2:])))):
 						execute = False
 						if mplugd.verbose:
-							print "mismatch: =\"%s\"" % (getattr(mplugd.laststate[ki[0]][outputid], "_".join(ki[2:])))
+							print("mismatch: =\"%s\"" % (getattr(mplugd.laststate[ki[0]][outputid], "_".join(ki[2:]))))
 						break
 					else:
 						if mplugd.verbose:
-							print "match"
+							print("match")
 				else:
 					if mplugd.verbose:
-						print ki[1], "not found"
+						print(ki[1], "not found")
 					execute = False
 					break
 			
@@ -221,24 +223,24 @@ def execute_rules(filename, event):
 				# on_type=NewPlaybackStream
 				
 				if not event:
-					print "no event"
+					print("no event")
 					execute = False
 					break
 				
 				if not sparser.match(values, event.etype):
 					if mplugd.verbose:
-						print "mismatch", event.etype
+						print("mismatch", event.etype)
 					execute = False
 					break
 				else:
 					if mplugd.verbose:
-						print "match"
+						print("match")
 			
 			elif k.startswith("on_"):
 				# on_name*=DP-[0-9]
 				
 				if not event:
-					print "no event"
+					print("no event")
 					execute = False
 					break
 				
@@ -251,7 +253,7 @@ def execute_rules(filename, event):
 				
 				if found:
 					if not p.handle_rule_cmd(sparser, pl, values, mplugd.laststate, event):
-						print "no match"
+						print("no match")
 						execute = False
 						break
 				else:
@@ -259,20 +261,20 @@ def execute_rules(filename, event):
 					
 					if not hasattr(event.item, pl) or not sparser.match(values, getattr(event.item, pl)):
 						if mplugd.verbose:
-							print "mismatch ",
+							print("mismatch ", end=' ')
 							if hasattr(event.item, pl):
-								print getattr(event.item, pl)
+								print(getattr(event.item, pl))
 							else:
-								print "no such attr"
+								print("no such attr")
 						execute = False
 						break
 						
 					if mplugd.verbose:
-						print "match"
+						print("match")
 			
 			else:
 				if mplugd.verbose:
-					print "skipped"
+					print("skipped")
 		
 		# find true/false statements and pass them to the respective plugin
 		for k,v in sparser.items(s):
@@ -286,13 +288,13 @@ def execute_rules(filename, event):
 					for cmd in v:
 						cmd = rules_substitute_value(event, cmd)
 						if mplugd.verbose:
-							print "exec", cmd
+							print("exec", cmd)
 						subprocess.call(cmd, shell=True)
 				if len(pl) == 3 and pl[2] == "thread":
 					for cmd in v:
 						cmd = rules_substitute_value(event, cmd)
 						if mplugd.verbose:
-							print "exec_thread", cmd
+							print("exec_thread", cmd)
 						t = ThreadedCommand(cmd)
 						t.start()
 			
@@ -334,7 +336,7 @@ def shutdown():
 	
 	for plugin in plugins:
 		if mplugd.verbose:
-			print "Stopping...", plugin.__name__
+			print("Stopping...", plugin.__name__)
 		plugin.shutdown()
 	
 	for plugin in plugins:
@@ -383,21 +385,21 @@ and executes user-defined actions on certain events.')
 				
 				if filename[:2] == "pi" and filename.split(".")[-1] == "py":
 					if mplugd.verbose:
-						print "starting plugin", filename
+						print("starting plugin", filename)
 					try:
 						mod = __import__(".".join(filename.split(".")[:-1]))
-					except ImportError, e:
-						print "ImportError:", e
-						print "Initialization of plugin %s failed" % filename
+					except ImportError as e:
+						print("ImportError:", e)
+						print("Initialization of plugin %s failed" % filename)
 						continue
 					
 					if not hasattr(mod, "initialize"):
-						print "Initialization of plugin %s failed" % filename
+						print("Initialization of plugin %s failed" % filename)
 						continue
 					
 					# initialize all constructs
 					if not mod.initialize(mplugd, q):
-						print "Initialization of plugin %s failed" % filename
+						print("Initialization of plugin %s failed" % filename)
 						continue
 					
 					plugins.append(mod)
@@ -417,15 +419,15 @@ and executes user-defined actions on certain events.')
 	if state_dump:
 		for plugin in plugins:
 			if hasattr(plugin, "dump_state"):
-				print "===================="
+				print("====================")
 				plugin.dump_state(mplugd.laststate)
-				print ""
+				print("")
 		
 		shutdown()
 		sys.exit(0)
 
 	if mplugd.verbose:
-		print "Processing static rules..."
+		print("Processing static rules...")
 	# process rules that do not depend on an event
 	q.push(MP_Event("Startup"))
 

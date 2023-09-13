@@ -7,8 +7,11 @@
 # MIDI plugin - react on MIDI input and send commands to MIDI devices
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
 import pyportmidi as pm
 import time, threading, sys, re
+from six.moves import range
 
 if __name__ == "__main__":
 	sys.path.append("../")
@@ -97,7 +100,7 @@ class PM_event_loop(threading.Thread):
 								pm_ev = PM_Event(self, i, c)
 								self.queue.push(pm_ev)
 						else:
-							print cmds
+							print(cmds)
 			try:
 				time.sleep(0.1)
 			except:
@@ -118,10 +121,10 @@ def handle_rule_cmd(sparser, pl, val, state, event):
 						l[i-1] = int(res.group(i), 16)
 					
 					if mplugd.verbose:
-						print "MIDI sending %x %x %x" % (l[0], l[1], l[2])
+						print("MIDI sending %x %x %x" % (l[0], l[1], l[2]))
 					o["obj"].write_short(l[0], l[1], l[2]);
 				else:
-					print "unknown MIDI command: %s" % val
+					print("unknown MIDI command: %s" % val)
 
 def initialize(main,queue):
 	global mplugd
@@ -155,15 +158,15 @@ def get_state(state):
 	state["portmidi"] = outputs
 
 def dump_state(state):
-	print "PortMIDI\n"
+	print("PortMIDI\n")
 	
-	print "Inputs:"
+	print("Inputs:")
 	for i in inputs:
-		print "\t",i["name"]
+		print("\t",i["name"])
 		
-	print "Outputs:"
+	print("Outputs:")
 	for i in outputs:
-		print "\t",i["name"]
+		print("\t",i["name"])
 
 if __name__ == "__main__":
 	eventloop = PM_event_loop(None)
